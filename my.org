@@ -1,0 +1,1112 @@
+#+TITLE: Emacs configuration file
+#+AUTHOR: FunLexer
+#+BABEL: :cache yes
+#+PROPERTY: header-args :tangle yes
+#+OPTIONS: toc:3 num:nil ^:nil \n:t
+
+* Config
+** Meta
+
+#+begin_src emacs-lisp
+;;; -*- lexical-binding: t -*-
+#+end_src
+
+** Functions
+
+<<sec:defuns>>
+
+#+begin_src emacs-lisp
+(defun my/kill-this-buffer-unless-scratch ()
+  "*scratch* 버퍼는 삭제하지 않고, 버퍼 내용을 삭제"
+  (interactive)
+  (if (not (string= (buffer-name) "*scratch*"))
+      (kill-this-buffer)
+    (delete-region (point-min) (point-max))
+    (switch-to-buffer (other-buffer))
+    (bury-buffer "*scratch*")))
+
+(add-hook 'kill-buffer-query-functions
+          (lambda() (not (equal (buffer-name) "*scratch*"))))
+
+;; |01234567|
+;; |abcdefgh|
+;; |ABCDEFGH|
+;; |--------|
+;; |일바이트|
+(defun my/set-font (font size)
+  "폰트 변경"
+  (interactive
+   (let ((completion-ignore-case  t))
+     (list (completing-read "Font: " (font-family-list) nil t)
+           (read-number "Size: "))))
+  (when (member font (font-family-list))
+    (set-face-font 'default (font-spec :family font :size size))))
+
+;; https://www.blogbyben.com/2022/05/gotcha-emacs-on-mac-os-too-many-files.html
+(defun my/file-notify-rm-all-watches ()
+  "Emacs에서 알림 감시 제거. Too many open files 오류 발생 시 수행"
+  (interactive)
+  (maphash
+   (lambda (key _value)
+     (file-notify-rm-watch key))
+   file-notify-descriptors))
+
+(defun my/minibuffer-backward-kill-word (arg)
+  "미니버퍼에서 경로(단어)마다 삭제"
+  (interactive "p")
+  (if minibuffer-completing-file-name
+      ;; Borrowed from https://github.com/raxod502/selectrum/issues/498#issuecomment-803283608
+      (if (string-match-p "/." (minibuffer-contents))
+          (zap-up-to-char (- arg) ?/)
+        (delete-minibuffer-contents))
+    (delete-backward-char arg)))
+
+(defun my/cred (address ports user)
+  "등록된 인증서 정보를 읽는다."
+  (let* ((found (nth 0 (auth-source-search :max 1
+                                           :host address
+                                           :port ports
+                                           :user user
+                                           :require '(:user :secret)))))
+    (if found
+        (list (plist-get found :user)
+              (let ((secret (plist-get found :secret)))
+                (if (functionp secret)
+                    (funcall secret)
+                  secret)))
+      nil)))
+
+(defun my/join-path (root &rest dirs)
+  "파일 경로 도움 함수
+Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
+  (if (not dirs)
+      root
+    (apply 'my/join-path
+           (expand-file-name (car dirs) root)
+           (cdr dirs))))
+
+(defun my/read-file (path)
+  "파일 컨텐츠 읽기"
+  (with-temp-buffer
+    (insert-file-contents path)
+    (buffer-string)))
+
+(defun my/enable-line-numbers-mode ()
+  "버퍼 라인 번호 표시 활성화"
+  (interactive)
+  (display-line-numbers-mode 1))
+
+(defun my/disable-line-numbers-mode ()
+  "버퍼 라인 번호 표시 비활성화"
+  (interactive)
+  (display-line-numbers-mode 0))
+
+(defun my/org-align-all-tags ()
+  "Org mode에서 버퍼의 tag 정렬"
+  (interactive)
+  ;; '(4)는 C-u와 동일
+  (org-set-tags-command '(4)))
+#+end_src
+
+** Better defaults
+
+#+begin_src emacs-lisp
+(setq-default
+ auto-revert-interval 1                        ; 버퍼를 빠르게 새로고침
+ warning-minimum-level :emergency              ; 네이티브 컴파일 경고 끄기
+ system-time-locale "C"                        ; 시스템 로케일
+ echo-keystrokes 0.1                           ; Show keystrokes asap
+ inhibit-startup-screen t                      ; No splash screen please
+ initial-scratch-message nil                   ; Clean scratch buffer
+ ring-bell-function 'ignore                    ; Quiet
+ scroll-margin 1                               ; Space between cursor and top/bottom
+ sentence-end-double-space nil                 ; No double space
+ vc-handled-backends nil                       ; Ignore Default VCS (use magit)
+ ad-redefinition-action 'accept                ; ad-handle-definition Warning ignore
+ display-time-format "%Y-%m-%dT%H:%M"          ; Powerline 날짜 포맷
+ display-time-default-load-average nil         ; Do not display the load average
+ default-input-method "korean-hangul"          ; 기본 입력
+ tab-width 2                                   ; Smaller tabs
+ sh-basic-offset 2                             ; SHELL 스타일 기본 들여쓰기
+ c-basic-offset 2                              ; C 스타일 기본 들여쓰기
+ fill-column 79                                ; Maximum line width
+ truncate-lines t                              ; Don't fold lines
+ indent-tabs-mode nil                          ; Use spaces instead of tabs
+ split-width-threshold 160                     ; Split verticly by default
+ split-height-threshold nil                    ; Split verticly by default
+ frame-resize-pixelwise t                      ; Fine-grained frame resize
+ use-short-answers t                           ; y-or-n-p
+ recentf-max-saved-items 100                   ; Show more recent files
+ recentf-exclude '("/var/folders/*" "^/tmp/*") ; 최근파일 제외
+ customize-save-defaults nil)                  ; Customize를 기본적으로 저장하지 않도록 설정
+
+;; read-extended-command-predicate 설정
+(setq read-extended-command-predicate #'command-completion-default-include-p)
+
+;; 백업 파일을 단일 디렉토리에 저장한다.
+(let ((dir (expand-file-name "auto-save-list" user-emacs-directory)))
+  (setq backup-directory-alist `((".*" . ,dir))
+        auto-save-file-name-transforms `((".*" ,dir t))))
+
+;; 사용자 정의 변수 (defcustom으로 정의된 변수)
+(custom-set-variables
+ '(display-time-format "%Y-%m-%dT%H:%M") ; Powerline 날짜 포맷
+ '(tab-always-indent 'complete))
+
+(when (eq system-type 'darwin)
+  (setq ns-pop-up-frames nil
+        mac-option-modifier nil
+        mac-command-modifier 'meta)
+  (when (boundp 'mac-pass-command-to-system)
+    (setq mac-pass-command-to-system nil))
+  (when (fboundp 'mac-auto-operator-composition-mode)
+    (mac-auto-operator-composition-mode t)))
+
+;; 경고음 끄기
+(put 'narrow-to-region 'disabled -1)
+;; 일반 메시지모드에서도 org 테이블 사용
+(add-hook 'message-mode-hook 'turn-on-orgtbl)
+;; 디스크 파일 변경 시, 자동 반영
+(add-hook 'doc-view-mode-hook 'auto-revert-mode)
+;; whitespace remove
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
+(global-display-line-numbers-mode 1)
+(column-number-mode 1)
+(delete-selection-mode 1)
+(dirtrack-mode 1)
+(recentf-mode 1)
+(show-paren-mode 1)
+(display-time-mode 1)
+;; (global-so-long-mode 1)
+(tool-bar-mode 0)
+(scroll-bar-mode 0)
+(menu-bar-mode 0)
+(blink-cursor-mode 0)
+#+end_src
+
+** Base Packages
+
+#+begin_src emacs-lisp
+;; Emacs Lisp 라이브러리 컴파일러
+(use-package auto-compile)
+;; 바이너리 컴파일
+(use-package cmake-mode)
+;; 사용가능한 키 바인딩 표시
+(use-package which-key
+  :config
+  (which-key-mode 1))
+;; Git 유틸
+(use-package magit
+  :config
+  ;; gpg-sign 추가하도록 구성
+  (setq transient-default-level 5))
+;; 페이지 나누기(^L) 표시 변경
+(use-package page-break-lines)
+;; 툴팁
+(use-package popup)
+;; decorations to HTML
+(use-package htmlize)
+;; 들여쓰기 표시
+(use-package highlight-indentation)
+;; RFC
+(use-package rfc-mode)
+;; 멀티 커서
+(use-package multiple-cursors)
+;; 괄호 편집 유틸
+(use-package paredit)
+;; 스니펫 모음
+(use-package yasnippet-snippets
+  :config
+  (yas-global-mode 1))
+;; 선택 영역 늘리고 줄이는 유틸
+(use-package expand-region)
+
+(use-package xref
+  :straight (:type built-in))
+
+(use-package project
+  :straight (:type built-in))
+
+(use-package reveal-in-osx-finder
+  :if (eq system-type 'drawin))
+#+end_src
+
+** Undo
+
+#+begin_src emacs-lisp
+(use-package undo-tree
+  :custom
+  (undo-tree-visualizer-diff t)
+  (undo-tree-visualizer-timestamps t)
+  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo")))
+  :config
+  (global-undo-tree-mode 1))
+#+end_src
+
+** DB
+
+#+begin_src emacs-lisp
+(setq sql-postgres-login-params '(server port user database)
+      sql-mysql-login-params '(server port user database)
+      sql-sqlite-login-params '(server port user database)
+      sql-db2-login-params '(server port user database)
+      sql-oracle-login-params '(server port user database)
+      sql-ms-login-params '(server port user database))
+#+end_src
+
+** Visual
+
+#+begin_src emacs-lisp
+;; 현재의 테마를 비활성화하고 로딩하도록 설정한다.
+(defun my/disable-themes-before-load (theme &optional no-confirm no-enable)
+  (mapc #'disable-theme custom-enabled-themes))
+(advice-add 'load-theme :before #'my/disable-themes-before-load)
+
+;; (load-theme 'zenburn t)
+#+end_src
+
+** Environment
+
+#+begin_src emacs-lisp
+(use-package exec-path-from-shell
+  :when (memq window-system '(mac ns x pgtk))
+  :custom
+  (exec-path-from-shell-variables '("PATH" "TMPDIR" "GOROOT" "GOPATH" "JAVA_HOME"))
+  :hook (after-init . exec-path-from-shell-initialize))
+#+end_src
+
+** Evil
+
+#+begin_src emacs-lisp
+(use-package evil
+  :init
+  (setq evil-want-integration t
+        evil-want-keybinding nil
+        evil-undo-system 'undo-tree)
+  :config
+  (evil-mode 1)
+
+  ;; evil-collection mu4e 1.10 버전 호환성 이슈
+  (defun mu4e--main-action-str (str &optional func-or-shortcut))
+  (defun evil-collection-mu3e-update-main-view@override())
+  (advice-add 'evil-collection-mu3e-update-main-view :override #'evil-collection-mu4e-update-main-view@override)
+
+  (evil-ex-define-cmd "q" 'kill-this-buffer)
+  (evil-ex-define-cmd "quit" 'evil-quit))
+
+(use-package evil-collection
+  :after evil
+  :config
+  (defun mu4e--main-action-str (str &optional func-or-shortcut))
+  (defun evil-collection-mu3e-update-main-view@override())
+  (advice-add 'evil-collection-mu3e-update-main-view
+              :override #'evil-collection-mu4e-update-main-view@override)
+  (evil-collection-init))
+
+(use-package evil-org
+  :after org
+  :hook (org-mode . evil-org-mode)
+  :config
+  (evil-org-set-key-theme '(navigation insert textobjects additional calendar)))
+
+(use-package evil-org-agenda
+  :straight (:type built-in)
+  :after evil-org
+  :config (evil-org-agenda-set-keys))
+#+end_src
+
+** [[https://github.com/bastibe/org-journal][Journal]]
+
+#+begin_src emacs-lisp
+(use-package org-journal
+  :after org
+  :custom
+  (org-journal-dir "~/org/journal/")
+  (org-journal-search-result-date-format "%A, %Y-%m-%d")
+  (org-journal-time-format "<%Y-%m-%d %a %H:%M>")
+  (org-journal-file-format "%Y/%m/%Y%m%d.org")
+  (org-journal-file-type 'weekly)
+  (org-journal-file-header "#+TITLE: %Y.%m Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
+  (org-journal-enable-agenda-integration t)
+  :config
+  ;; 캘린더 설정
+  (custom-set-faces
+   '(calendar-today ((t (:background "#CC9393" :underline t))))
+   '(org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic))))))
+#+end_src
+
+** Completion
+
+#+begin_src emacs-lisp
+(use-package savehist
+  :config
+  (savehist-mode 1))
+
+(use-package corfu
+  :custom
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-prefix 2)
+  (corfu-auto-delay 0)
+
+  :config
+  (global-corfu-mode))
+
+
+(use-package corfu-terminal
+  :unless
+  (display-graphic-p)
+
+  :straight (corfu-terminal
+             :type git
+             :host nil
+             :repo "https://codeberg.org/akib/emacs-corfu-terminal.git")
+  :after
+  (corfu)
+
+  :config
+  (corfu-terminal-mode 1))
+
+(use-package cape
+  :disabled
+  :after
+  (corfu)
+
+  :init
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-file)
+  (add-hook 'completion-at-point-functions #'cape-elisp-block))
+
+(use-package vertico
+  :init
+  (setq vertico-count-format '("%-5s " . "%2$s")
+        vertico-resize nil)
+  :config
+  (vertico-mode 1))
+
+(use-package consult
+  :init
+  (setq register-preview-delay 0.5
+        register-preview-function #'consult-register-format)
+  :config
+  (advice-add #'register-preview :override #'consult-register-window))
+
+(use-package consult-projectile
+  :after
+  (consult projectile)
+
+  :config
+  (defcustom consult-projectile-key-bindings
+    '((projectile-find-file        . consult-projectile-find-file)
+      (projectile-find-dir         . consult-projectile-find-dir)
+      (projectile-switch-to-buffer . consult-projectile-switch-to-buffer)
+      (projectile-switch-project   . consult-projectile-switch-project)
+      (projectile-grep             . consult-grep)
+      (projectile-ripgrep          . consult-ripgrep)
+      (" "                         . consult-projectile)
+      ("si"                        . consult-git-grep)
+      ("Oa"                        . consult-org-agenda))
+    "Like counsel-projectile-key-bindings"
+    :type '(alist :key-type (choice (function :tag "Projectile command")
+                                    key-sequence)
+                  :value-type (function :tag "Consult-projectile command"))
+    :group 'consult-projectile)
+
+  (define-minor-mode consult-projectile-mode
+    ""
+    :group 'consult-projectile
+    :require 'consult-projectile
+    :global t
+    (cond
+     (consult-projectile-mode
+      (projectile-mode)
+      (dolist (binding consult-projectile-key-bindings)
+        (if (functionp (car binding))
+            (define-key projectile-mode-map `[remap ,(car binding)] (cdr binding))
+          (define-key projectile-command-map (car binding) (cdr binding)))))
+     (t
+      (dolist (binding consult-projectile-key-bindings)
+        (if (functionp (car binding))
+            (define-key projectile-mode-map `[remap ,(car binding)] nil)
+          (define-key projectile-command-map (car binding) nil)))
+      (projectile-mode -1))))
+  (consult-projectile-mode 1))
+
+(use-package marginalia
+  :config
+  (marginalia-mode 1))
+
+(use-package embark)
+(use-package embark-consult
+  :after
+  (embark consult)
+
+  :hook
+  (embark-collect-mode . consult-preview-at-point-mode))
+
+(use-package orderless
+  :init
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
+#+end_src
+
+** Translate
+
+#+begin_src emacs-lisp
+(use-package google-translate
+  :init
+  (setq google-translate-default-source-language "en"
+        google-translate-default-target-language "ko"
+        google-translate-output-destination nil)
+  (defun google-translate--search-tkk ()
+    "https://github.com/atykhonov/google-translate/issues/137"
+    (list 430675 2721866130)))
+#+end_src
+
+** Olivetti
+
+#+begin_src emacs-lisp
+(use-package olivetti
+  :init
+  (setq-default olivetti-body-width 82)
+  :config
+  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode)
+  (add-hook 'olivetti-mode-on-hook #'my/disable-line-numbers-mode)
+  (add-hook 'olivetti-mode-off-hook #'my/enable-line-numbers-mode))
+#+end_src
+
+** Ibuffer
+
+#+begin_src emacs-lisp
+(use-package ibuffer
+  :straight (:type built-in)
+  :init
+  (defalias 'list-buffers 'ibuffer)
+  :hook
+  (ibuffer-mode . ibuffer-auto-mode)
+  :config
+  (setq ibuffer-expert t
+        ibuffer-default-sorting-mode 'major-mode))
+#+end_src
+
+** Shell
+
+#+begin_src emacs-lisp
+(use-package eshell
+  :straight (:type built-in)
+  :init (defalias 'my/sh 'eshell))
+
+(use-package vterm
+  :when (memq window-system '(mac ns x pgtk))
+  :init
+  (setq vterm-always-compile-module t
+        vterm-timer-delay 0.01)
+  :config
+  (defadvice vterm (after kill-with-no-query nil activate)
+    (set-process-query-on-exit-flag (get-buffer-process ad-return-value) nil))
+  (defalias 'my/sh 'vterm)
+  (add-hook 'vterm-mode-hook #'my/disable-line-numbers-mode))
+
+(defun my/switch-sh (n)
+  "shell 버퍼 변경"
+  (let ((buffer-name (format "sh<%d>" n)))
+    (cond ((get-buffer buffer-name)
+           (switch-to-buffer buffer-name))
+          (t (my/sh buffer-name)
+             (rename-buffer buffer-name)))))
+#+end_src
+
+** Projectile
+
+#+begin_src emacs-lisp
+(use-package projectile
+  :init
+  (setq projectile-globally-ignored-directories
+        '(".git" ".vscode" ".idea" ".svn" ".tox" ".cache" "vendor"))
+
+  (cond
+   ;; Windows
+   ((eq system-type 'windows-nt)
+    nil) ; projectile 기본값 사용
+
+   ;; Linux/Unix
+   ((executable-find "rg")
+    (setq projectile-generic-command
+          (let ((rg-cmd ""))
+            (dolist (dir projectile-globally-ignored-directories)
+              (setq rg-cmd (format "%s --glob '!%s'" rg-cmd dir)))
+            (concat "rg -0 --files --color=never --hidden " rg-cmd))
+          projectile-git-command projectile-generic-command))))
+#+end_src
+
+** Treemacs
+
+#+begin_src emacs-lisp
+(use-package treemacs
+  :init
+  ;; https://github.com/Alexander-Miller/treemacs#configuration
+  (setq treemacs-read-string-input 'from-minibuffer ; 이맥스 미니버퍼
+        treemacs-litter-directories '("/vendor" "/node_modules")
+        treemacs-no-png-images t))
+
+(use-package treemacs-evil
+  :after (treemacs evil))
+
+(use-package treemacs-projectile
+  :after (treemacs projectile))
+#+end_src
+
+** Elfeed
+
+#+begin_src emacs-lisp
+(use-package elfeed
+  :init
+  (setq-default elfeed-search-filter "@1-month-ago +unread "
+                elfeed-curl-extra-arguments '("--insecure")
+                elfeed-show-entry-switch 'switch-to-buffer)
+  :config
+  (defun my/elfeed-toggle-flagged ()
+    "Toggle flagged tag for current entry"
+    (interactive)
+    (let ((entry (elfeed-search-selected :single)))
+      (if (elfeed-tagged-p 'flagged entry)
+          (elfeed-untag entry 'flagged)
+        (elfeed-tag entry 'flagged))
+      (elfeed-search-update-entry entry)))
+
+  (defun my/elfeed-show-flagged ()
+    "Show only flagged entries"
+    (interactive)
+    (elfeed-search-set-filter "+flagged"))
+
+  (defun my/elfeed-export-flagged ()
+    "Export flagged entries to org file with tags"
+    (interactive)
+    (let ((exported-count 0)
+          (existing-links (make-hash-table :test 'equal)))
+
+      (with-current-buffer (find-file-noselect "~/org/feed.org")
+        (when (= (buffer-size) 0)
+          (insert "#+TITLE: Feed Flagged Entries\n\n"))
+
+        ;; 기존 링크들 수집 (중복 방지용)
+        (save-excursion
+          (goto-char (point-min))
+          (while (re-search-forward "\\* \\[\\[\\([^]]+\\)\\]" nil t)
+            (puthash (match-string 1) t existing-links)))
+
+        (goto-char (point-max))
+
+        (with-elfeed-db-visit (entry feed)
+          (when (and (elfeed-tagged-p 'flagged entry)
+                     (not (gethash (elfeed-entry-link entry) existing-links)))
+            (let* ((entry-tags (elfeed-entry-tags entry))
+                   (exclude-tags '(unread flagged))
+                   (user-tags (cl-remove-if (lambda (tag)
+                                              (memq tag exclude-tags))
+                                            entry-tags))
+                   (org-tags-string (if user-tags
+                                        (concat ":"
+                                                (mapconcat (lambda (tag)
+                                                             (symbol-name tag))
+                                                           user-tags ":")
+                                                ":")
+                                      "")))
+              (insert (format "* [[%s][%s]] %s\n"
+                              (elfeed-entry-link entry)
+                              (elfeed-entry-title entry)
+                              org-tags-string))
+              (insert (format ":PROPERTIES:\n:DATE: %s\n:FEED: %s\n:ELFEED_TAGS: %s\n:END:\n\n"
+                              (format-time-string "%Y-%m-%d" (elfeed-entry-date entry))
+                              (elfeed-feed-title feed)
+                              (mapconcat 'symbol-name entry-tags " ")))
+              (setq exported-count (1+ exported-count)))))
+
+        (save-buffer)
+        (if (> exported-count 0)
+            (message "Appended %d new entries to ~/org/feed.org" exported-count)
+          (message "No new entries to export"))))))
+
+(use-package elfeed-org
+  :after (elfeed org)
+  :init (setq rmh-elfeed-org-files (list "~/.emacs.d/elfeed.org"))
+  :config (elfeed-org))
+
+(use-package elfeed-summary
+  :after elfeed-org
+  :config
+  (setq elfeed-summary-settings
+        '((auto-tags
+           (:original-order . t)
+           (:max-level . 1))))
+
+  ;; 현재 창에서 열리도록 설정
+  (setq display-buffer-alist
+        (append display-buffer-alist
+                '(("\\*elfeed-summary\\*"
+                   (display-buffer-same-window))))))
+
+(with-eval-after-load 'evil-collection
+  (evil-collection-define-key 'normal 'elfeed-search-mode-map
+    "f" #'my/elfeed-toggle-flagged
+    "F" #'my/elfeed-show-flagged
+    "E" #'my/elfeed-export-flagged))
+#+end_src
+
+** Eglot
+
+#+begin_src emacs-lisp
+(use-package eglot
+  :init
+  (setq-default eglot-workspace-configuration
+                '((:gopls . ((staticcheck . t)
+                             (matcher . "CaseSensitive")))))
+  :config
+  (evil-collection-define-key 'normal 'eglot-mode-map "gr" 'xref-find-references)
+  :hook
+  (go-mode . eglot-ensure)
+  :bind
+  (:map eglot-mode-map
+        ("C-c l g d" . xref-find-definitions)
+        ("C-c l g r" . xref-find-references)
+        ("C-c l g i" . eglot-find-implementation)
+        ("C-c l r"  . eglot-rename)
+        ("C-c l o" . eglot-code-action-organize-imports)
+        ("C-c l h" . eldoc)))
+
+(use-package consult-eglot
+  :after (eglot consult))
+#+end_src
+
+** Lisp
+
+#+begin_src emacs-lisp
+(use-package paredit
+  :hook ((ielm-mode
+          lisp-mode
+          emacs-lisp-mode
+          lisp-interaction-mode
+          scheme-mode) . paredit-mode))
+#+end_src
+
+** Go
+
+유틸리티
+
+#+begin_src sh
+go install github.com/klauspost/asmfmt/cmd/asmfmt@latest
+go install github.com/go-delve/delve/cmd/dlv@latest
+go install github.com/kisielk/errcheck@latest
+go install github.com/davidrjenni/reftools/cmd/fillstruct@master
+go install github.com/rogpeppe/godef@latest
+go install golang.org/x/tools/cmd/goimports@master
+go install github.com/mgechev/revive@latest
+go install golang.org/x/tools/gopls@latest
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+go install honnef.co/go/tools/cmd/staticcheck@latest
+go install github.com/fatih/gomodifytags@latest
+go install golang.org/x/tools/cmd/gorename@master
+go install github.com/jstemmer/gotags@master
+go install golang.org/x/tools/cmd/guru@master
+go install github.com/josharian/impl@main
+go install honnef.co/go/tools/cmd/keyify@master
+go install github.com/fatih/motion@latest
+go install github.com/koron/iferr@master
+#+end_src
+
+
+#+begin_src emacs-lisp
+(use-package go-mode
+  :after (eglot)
+  :config
+  (defun my/go-mode-setup()
+    (setq tab-width 2
+          compile-command (if (string-match "_test\\.go$" (buffer-file-name))
+                              "go test -v ."
+                            "go run -v ."))
+    (local-set-key (kbd "C-c C-c") 'compile))
+  (add-hook 'go-mode-hook 'hs-minor-mode)
+  (add-hook 'go-mode-hook 'my/go-mode-setup))
+
+(use-package go-mode
+  :after (eglot)
+  :config
+  (defun my/go-mode-setup()
+    (setq tab-width 2)
+    (when (buffer-file-name)
+      (setq compile-command (if (string-match "_test\\.go$" (buffer-file-name))
+                                "go test -v ."
+                              "go run -v .")))
+    (when (eq major-mode 'go-mode)
+      (local-set-key (kbd "C-c C-c") 'compile)))
+
+  (add-hook 'go-mode-hook 'hs-minor-mode)
+  (add-hook 'go-mode-hook 'my/go-mode-setup))
+
+(use-package go-tag
+  :after (go-mode))
+
+(with-eval-after-load 'eglot
+  (require 'project)
+  (defun my/project-find-go-module (dir)
+    (when-let ((root (locate-dominating-file dir "go.mod")))
+      (cons 'go-module root)))
+
+  (cl-defmethod project-root ((project (head go-module)))
+    (cdr project))
+
+  (add-hook 'project-find-functions #'my/project-find-go-module)
+
+  (defun my/eglot-before-save()
+    (interactive)
+    (when (eq major-mode 'go-mode)
+      (eglot-format-buffer)
+      (call-interactively 'eglot-code-action-organize-imports)))
+
+  (add-hook 'before-save-hook #'my/eglot-before-save)
+  (add-hook 'go-mode-hook #'eglot-ensure))
+
+(use-package ob-go
+  :after (go-mode))
+#+end_src
+
+** Java
+
+#+begin_src emacs-lisp
+;; (use-package eglot-java
+;;   :config
+;;   ;; (setq lombok-jar-path (expand-file-name "bin/lombok-1.18.jar" user-emacs-directory))
+;;   ;; (add-to-list 'eglot-java-eclipse-jdt-args (concat "-javaagent:" lombok-jar-path))
+;;   (add-hook 'java-mode-hook 'eglot-java-mode))
+#+end_src
+
+** Org
+
+#+begin_src emacs-lisp
+(use-package org
+  :init
+  (setq org-startup-folded t
+        org-adapt-indentation nil
+        org-src-fontify-natively t
+        org-src-tab-acts-natively t
+        org-confirm-babel-evaluate nil
+        org-edit-src-content-indentation 0
+        org-imenu-depth 3
+        org-log-done 'time
+        org-babel-default-header-args:sh `((:noweb . "yes") (:results . "output"))
+        org-babel-go-command "GO111MODULE=off go"
+        org-agenda-window-setup 'current-window
+        org-agenda-start-with-log-mode '(closed)
+        org-agenda-tags-column 0
+        org-todo-keywords '((sequence "TODO(t)" "INPROGRESS(i)" "PAUSED(p)" "|"
+                                      "DONE(d)" "CANCELED(c)"))
+        org-agenda-files '("~/org/inbox.org" "~/org/gtd.org" "~/org/tickler.org")
+        org-refile-targets '(("~/org/gtd.org" :maxlevel . 1)
+                             ("~/org/someday.org" :level . 1)
+                             ("~/org/tickler.org" :maxlevel . 2))
+        org-capture-templates '(("t" "TODO [inbox]" entry (file "~/org/inbox.org") "* TODO %i%?")
+                                ("T" "Tickler" entry (file "~/org/tickler.org") "* %i%? \n %U"))
+        org-tag-alist '(("crypt" . ?c) ("@home" . ?h) ("@office" . ?o))
+        org-babel-default-header-args '((:eval . "never-export"))
+        org-html-postamble nil
+        org-html-doctype "html5"
+        org-html-html5-fancy t
+        org-html-validation-link nil
+        org-html-head-include-default-style t)
+  :config
+
+  (defun my/get-theme-colors-for-org-html ()
+    (let* ((bg-color (face-background 'default))
+           (fg-color (face-foreground 'default))
+           (comment-color (face-foreground 'font-lock-comment-face))
+           (keyword-color (face-foreground 'font-lock-keyword-face))
+           (string-color (face-foreground 'font-lock-string-face)))
+      (format "<style>
+pre.src {
+  background-color: %s !important;
+  color: %s !important;
+  border: 1px solid %s;
+  padding: 1rem;
+  border-radius: 6px;
+}
+.org-comment { color: %s !important; }
+.org-keyword { color: %s !important; }
+.org-string { color: %s !important; }
+</style>"
+              bg-color fg-color comment-color
+              comment-color keyword-color string-color)))
+
+  (defun my/update-org-html-theme ()
+    (setq org-html-head (my/get-theme-colors-for-org-html)))
+
+  ;; 테마 변경 시 적용
+  (add-hook 'enable-theme-functions
+            (lambda (theme) (my/update-org-html-theme)))
+  (advice-add 'disable-theme :after
+              (lambda (&rest _) (my/update-org-html-theme)))
+
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((python . t)
+     (ditaa . t)
+     (java . t)
+     (go . t)
+     (js . t)
+     (C . t)
+     (shell . t)
+     (plantuml . t)))
+
+  (dolist (temp
+           '(("sh" . "src sh \n")
+             ("u" . "src plantuml :file ?.png :cmdline -charset UTF-8\n")
+             ("t" . "src typescript :cmdline -t es6 \n")))
+    (add-to-list 'org-structure-template-alist temp))
+  (require 'org-tempo)
+  (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
+  (custom-set-variables `(org-emphasis-alist ',org-emphasis-alist)))
+
+(use-package epa-file
+  :after (org)
+  :straight (:type built-in)
+  :autoload epa-file-enable)
+
+(use-package org-crypt
+  :after (org)
+  :straight (:type built-in)
+  :config
+  (setq epa-file-select-keys nil
+        epg-pinentry-mode 'loopback
+        auth-sources '((:source "~/.authinfo.gpg"))
+        org-crypt-key nil
+        org-tags-exclude-from-inheritance (quote ("crypt")))
+  ;; 암호 항목에 대한 tangle 내보내기 문제 해결
+  (org-crypt-use-before-save-magic)
+  (defun my/reveal-and-move-back ()
+    (org-reveal)
+    (goto-char my/old-point))
+  (defun my/org-reveal-after-save-on ()
+    (setq my/old-point (point))
+    (add-hook 'after-save-hook 'my/reveal-and-move-back))
+  (defun my/org-reveal-after-save-off ()
+    (remove-hook 'after-save-hook 'my/reveal-and-move-back))
+  (add-hook 'org-babel-pre-tangle-hook 'my/org-reveal-after-save-on)
+  (add-hook 'org-babel-post-tangle-hook 'my/org-reveal-after-save-off))
+
+(use-package ox-gfm
+  :after (org))
+
+(use-package org-tree-slide
+  :after (org))
+#+end_src
+
+** File Syntax
+#+begin_src emacs-lisp
+(when (image-type-available-p 'svg)
+  (require 'svg))
+
+;; W : 너비를 창에 맞춤 (fit width)
+;; H : 높이를 창에 맞춤 (fit height)
+;; P : 페이지 전체를 창에 맞춤 (fit page)
+;; 0 : 원래 크기로 리셋
+(use-package pdf-tools
+  :magic ("%PDF" . pdf-view-mode)
+  :config
+  (pdf-tools-install :no-query)
+  :hook (pdf-view-mode . (lambda() (display-line-numbers-mode -1))))
+
+(use-package json-mode
+  :config
+  (setq js-indent-level tab-width)
+  (add-hook 'json-mode-hook 'highlight-indentation-mode))
+
+(use-package yaml-mode
+  :config
+  (add-hook 'yaml-mode-hook 'highlight-indentation-mode))
+
+(use-package plantuml-mode
+  :config
+  (let ((jar-file "~/.emacs.d/bin/plantuml.jar"))
+    (setq plantuml-default-exec-mode 'jar
+          plantuml-jar-path jar-file
+          org-plantuml-jar-path jar-file)))
+
+(use-package k8s-mode
+  :config
+  (setq k8s-indent-offset nil
+        k8s-site-docs-url "https://kubernetes.io/docs/reference/generated/kubernetes-api/")
+  (add-to-list 'org-src-lang-modes '("k8s" . yaml)))
+
+(use-package markdown-mode
+  :config
+  (setq markdown-command "multimarkdown"))
+
+(use-package adoc-mode)
+(use-package js2-mode)
+(use-package dockerfile-mode)
+(use-package groovy-mode)
+(use-package vimrc-mode)
+#+end_src
+
+#+RESULTS:
+
+** Mail
+
+#+begin_src emacs-lisp
+(use-package mu4e
+  :if (or (not (eq system-type 'windows-nt))
+          (executable-find "mu"))  ; Windows에서는 수동 설치된 mu가 있을 때만
+  :straight ( :type git
+              :host github
+              :repo "djcb/mu"
+              :branch "v1.12.12"
+              :files ("build/mu4e/*.el"))
+  :config
+  ;; maildir 첫 번째 경로를 context로 사용
+  (add-to-list 'mu4e-header-info-custom
+               '(:context . (:name "Context"
+                                   :shortname "Ctx"
+                                   :help "Message context from maildir"
+                                   :function
+                                   (lambda (msg)
+                                     (let ((maildir (mu4e-message-field msg :maildir)))
+                                       (if maildir
+                                           (let* ((clean-path (replace-regexp-in-string "^/" "" maildir))
+                                                  (paths (split-string clean-path "/")))
+                                             (if paths (car paths) ""))
+                                         ""))))))
+
+  (setq read-mail-command 'mu4e
+        mail-user-agent 'mu4e-user-agent
+        mu4e-get-mail-command "mbsync -a"
+        mu4e-change-filenames-when-moving t
+        mu4e-confirm-quit nil
+        mu4e-context-policy 'pick-first
+        mu4e-completing-read-function 'completing-read
+        mu4e-search-full t
+        mu4e-search-include-related nil
+        mu4e-eldoc-support t
+        mu4e-notification-support t
+        mu4e-update-interval (* 5 60)
+        mu4e-attachment-dir "~/Downloads/"
+        mu4e-maildir-shortcuts '(("/Inbox" . ?i))
+        mu4e-headers-visible-lines 20
+        mu4e-headers-visible-columns 80
+        mu4e-headers-visible-lines 10
+        mu4e-headers-date-format "%Y-%m-%dT%H:%M"
+        mu4e-headers-fields '((:human-date . 18)
+                              (:flags      . 6)
+                              (:context    . 8)
+                              (:from       . 22)
+                              (:subject    . nil))))
+
+(use-package smtpmail
+  :straight (:type built-in)
+  :init
+  (setq message-citation-line-format "%N @ %Y-%m-%dT%H:%M :\n"
+        message-citation-line-function 'message-insert-formatted-citation-line
+        message-send-mail-function 'smtpmail-send-it
+        message-kill-buffer-on-exit t
+        starttls-use-gnutls t
+        smtpmail-starttls-credentials '(("smtp.gmail.com" 587 nil nil))
+        smtpmail-default-smtp-server "smtp.gmail.com"
+        smtpmail-smtp-server "smtp.gmail.com"
+        smtpmail-smtp-service 587))
+
+;; Org export HTML 메일 발송
+(use-package org-mime
+  :hook (org-mime-html . (lambda ()
+                           (org-mime-change-element-style
+                            "pre" "border: 1px solid #eee;"))))
+#+end_src
+
+* Binding
+
+[[https://stackoverflow.com/questions/683425/globally-override-key-binding-in-emacs][설정 파일 끝에 유지]]
+
+#+begin_src emacs-lisp
+(defvar my/key-map (make-keymap)
+  "추가적인 keymap 설정")
+
+(define-minor-mode my/key-mode
+  "전역적인 커스텀 단축키 설정 모드"
+  :init-value t
+  :keymap my/key-map
+  :lighter " My")
+
+(my/key-mode t)
+#+end_src
+
+** Bindings for Mode
+
+#+begin_src emacs-lisp
+(keymap-set emacs-lisp-mode-map "C-c C-c" 'eval-defun)
+(keymap-set lisp-interaction-mode-map "C-c C-c" 'eval-defun)
+
+(keymap-set minibuffer-local-map "C-l" 'my/minibuffer-backward-kill-word)
+
+(add-hook 'ielm-mode-hook
+          (lambda ()
+            (keymap-set my/key-map "C-j" 'ielm-return)))
+#+end_src
+
+** Bindings for [[https://github.com/bbatsov/projectile][Projectile]]
+
+#+begin_src emacs-lisp
+(keymap-set my/key-map "C-c p" 'projectile-command-map)
+#+end_src
+
+** Bindings for Completion
+
+#+begin_src emacs-lisp
+(keymap-set my/key-map "C-s" 'consult-line)
+(keymap-set my/key-map "M-y" 'consult-yank-pop)
+(keymap-set my/key-map "C-x b" 'consult-buffer)
+;; (keymap-set my/key-map "C-c b" 'consult-bookmark) mu4e와 충돌
+(keymap-set my/key-map "C-c i" 'consult-imenu)
+(keymap-set my/key-map "C-c r" 'consult-recent-file)
+(keymap-set my/key-map "C-h M" 'consult-minor-mode-menu)
+#+end_src
+
+** Bindings for [[https://orgmode.org][Org]]
+
+#+begin_src emacs-lisp
+(keymap-set my/key-map "C-c a" 'org-agenda)
+(keymap-set my/key-map "C-c c" 'org-capture)
+(keymap-set my/key-map "C-c n"
+  (lambda () (interactive) (org-agenda nil "n")))
+
+(keymap-set my/key-map "C-c j" 'org-journal-open-current-journal-file)
+(keymap-set my/key-map "C-c J" 'org-journal-new-entry)
+#+end_src
+
+** Bindings for Shell
+
+#+begin_src emacs-lisp
+(dolist (n (number-sequence 1 9))
+  (keymap-set my/key-map (concat "M-" (int-to-string n))
+              (lambda () (interactive) (my/switch-sh n))))
+(keymap-set my/key-map "M-`"
+            (lambda () (interactive) (my/switch-sh 10)))
+
+(when (eq system-type 'gnu/linux)
+  (keymap-set my/key-map "C-SPC" 'toggle-input-method))
+#+end_src
+
+** Bindings for Base
+
+#+begin_src emacs-lisp
+(keymap-set my/key-map "C-c e" 'treemacs)
+(keymap-set my/key-map "C-M-f" 'toggle-frame-fullscreen)
+(keymap-set my/key-map "C-x k" 'my/kill-this-buffer-unless-scratch)
+(keymap-set my/key-map "C-c o" 'olivetti-mode)
+(keymap-set my/key-map "C-c m" 'magit-status)
+(keymap-set my/key-map "C->" 'er/expand-region)
+(keymap-set my/key-map "C-<" 'er/contract-region)
+(keymap-set my/key-map "C-c T" 'google-translate-at-point)
+
+(keymap-set my/key-map "<f5>"
+            (lambda () (interactive) (find-file "~/org/inbox.org")))
+(keymap-set my/key-map "<f6>" 'mu4e)
+(keymap-set my/key-map "<f7>" 'elfeed-summary)
+#+end_src
