@@ -1088,14 +1088,12 @@ pre.src {
               (lambda () (interactive) (my/switch-sh n))))
 (keymap-set my/key-map "M-`"
             (lambda () (interactive) (my/switch-sh 10)))
-
-(when (eq system-type 'gnu/linux)
-  (keymap-set my/key-map "C-SPC" 'toggle-input-method))
 #+end_src
 
 ** Bindings for Base
 
 #+begin_src emacs-lisp
+(keymap-set my/key-map "C-SPC" 'toggle-input-method)
 (keymap-set my/key-map "C-c e" 'treemacs)
 (keymap-set my/key-map "C-M-f" 'toggle-frame-fullscreen)
 (keymap-set my/key-map "C-x k" 'my/kill-this-buffer-unless-scratch)
