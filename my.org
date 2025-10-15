@@ -227,6 +227,14 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package project
   :straight (:type built-in))
 
+(use-package ansi-color
+  :straight (:type built-in)
+  :config
+  (defun my/ansi-colorize-buffer ()
+    "현재 버퍼에 ANSI 색상 표시"
+    (interactive)
+    (ansi-color-apply-on-region (point-min) (point-max))))
+
 (use-package reveal-in-osx-finder
   :if (eq system-type 'drawin))
 #+end_src
