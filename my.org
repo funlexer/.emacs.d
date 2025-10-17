@@ -99,7 +99,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (defun my/disable-line-numbers-mode ()
   "버퍼 라인 번호 표시 비활성화"
   (interactive)
-  (display-line-numbers-mode 0))
+  (display-line-numbers-mode -1))
 
 (defun my/org-align-all-tags ()
   "Org mode에서 버퍼의 tag 정렬"
@@ -178,10 +178,10 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (show-paren-mode 1)
 (display-time-mode 1)
 ;; (global-so-long-mode 1)
-(tool-bar-mode 0)
-(scroll-bar-mode 0)
-(menu-bar-mode 0)
-(blink-cursor-mode 0)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+(menu-bar-mode -1)
+(blink-cursor-mode -1)
 #+end_src
 
 ** Base Packages
