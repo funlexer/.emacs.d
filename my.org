@@ -280,7 +280,8 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :when (memq window-system '(mac ns x pgtk))
   :custom
   (exec-path-from-shell-variables '("PATH" "TMPDIR" "GOROOT" "GOPATH" "JAVA_HOME"))
-  :hook (after-init . exec-path-from-shell-initialize))
+  :hook
+  (after-init . exec-path-from-shell-initialize))
 #+end_src
 
 ** Evil
@@ -313,13 +314,14 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package evil-org
   :after org
-  :hook (org-mode . evil-org-mode)
+  :hook
+  (org-mode . evil-org-mode)
   :config
   (evil-org-set-key-theme '(navigation insert textobjects additional calendar)))
 
 (use-package evil-org-agenda
-  :straight (:type built-in)
   :after evil-org
+  :straight (:type built-in)
   :config (evil-org-agenda-set-keys))
 #+end_src
 
@@ -360,26 +362,18 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :config
   (global-corfu-mode))
 
-
 (use-package corfu-terminal
-  :unless
-  (display-graphic-p)
-
-  :straight (corfu-terminal
-             :type git
-             :host nil
-             :repo "https://codeberg.org/akib/emacs-corfu-terminal.git")
-  :after
-  (corfu)
-
+  :unless (display-graphic-p)
+  :after (corfu)
+  :straight ( :type git
+              :host nil
+              :repo "https://codeberg.org/akib/emacs-corfu-terminal.git")
   :config
   (corfu-terminal-mode 1))
 
 (use-package cape
   :disabled
-  :after
-  (corfu)
-
+  :after (corfu)
   :init
   (add-hook 'completion-at-point-functions #'cape-dabbrev)
   (add-hook 'completion-at-point-functions #'cape-file)
@@ -400,9 +394,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (advice-add #'register-preview :override #'consult-register-window))
 
 (use-package consult-projectile
-  :after
-  (consult projectile)
-
+  :after (consult projectile)
   :config
   (defcustom consult-projectile-key-bindings
     '((projectile-find-file        . consult-projectile-find-file)
@@ -445,10 +437,9 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (marginalia-mode 1))
 
 (use-package embark)
-(use-package embark-consult
-  :after
-  (embark consult)
 
+(use-package embark-consult
+  :after (embark consult)
   :hook
   (embark-collect-mode . consult-preview-at-point-mode))
 
@@ -478,10 +469,11 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package olivetti
   :init
   (setq-default olivetti-body-width 82)
+  :hook
+  ((olivetti-mode-on . my/disable-line-numbers-mode)
+   (olivetti-mode-off . my/enable-line-numbers-mode))
   :config
-  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode)
-  (add-hook 'olivetti-mode-on-hook #'my/disable-line-numbers-mode)
-  (add-hook 'olivetti-mode-off-hook #'my/enable-line-numbers-mode))
+  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
 #+end_src
 
 ** Ibuffer
@@ -503,18 +495,20 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 #+begin_src emacs-lisp
 (use-package eshell
   :straight (:type built-in)
-  :init (defalias 'my/sh 'eshell))
+  :init
+  (defalias 'my/sh 'eshell))
 
 (use-package vterm
   :when (memq window-system '(mac ns x pgtk))
   :init
   (setq vterm-always-compile-module t
         vterm-timer-delay 0.01)
+  :hook
+  (vterm-mode . my/disable-line-numbers-mode)
   :config
   (defadvice vterm (after kill-with-no-query nil activate)
     (set-process-query-on-exit-flag (get-buffer-process ad-return-value) nil))
-  (defalias 'my/sh 'vterm)
-  (add-hook 'vterm-mode-hook #'my/disable-line-numbers-mode))
+  (defalias 'my/sh 'vterm))
 
 (defun my/switch-sh (n)
   "shell 버퍼 변경"
@@ -638,8 +632,10 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package elfeed-org
   :after (elfeed org)
-  :init (setq rmh-elfeed-org-files (list "~/.emacs.d/elfeed.org"))
-  :config (elfeed-org))
+  :init
+  (setq rmh-elfeed-org-files (list "~/.emacs.d/elfeed.org"))
+  :config
+  (elfeed-org))
 
 (use-package elfeed-summary
   :after elfeed-org
@@ -672,8 +668,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
                              (matcher . "CaseSensitive")))))
   :config
   (evil-collection-define-key 'normal 'eglot-mode-map "gr" 'xref-find-references)
-  :hook
-  (go-mode . eglot-ensure)
+
   :bind
   (:map eglot-mode-map
         ("C-c l g d" . xref-find-definitions)
@@ -691,11 +686,12 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 #+begin_src emacs-lisp
 (use-package paredit
-  :hook ((ielm-mode
-          lisp-mode
-          emacs-lisp-mode
-          lisp-interaction-mode
-          scheme-mode) . paredit-mode))
+  :hook
+  ((ielm-mode
+    lisp-mode
+    emacs-lisp-mode
+    lisp-interaction-mode
+    scheme-mode) . paredit-mode))
 #+end_src
 
 ** Go
@@ -723,40 +719,33 @@ go install github.com/fatih/motion@latest
 go install github.com/koron/iferr@master
 #+end_src
 
-
 #+begin_src emacs-lisp
 (use-package go-mode
-  :after (eglot)
+  :after (eglot project)
+  :mode
+  ("\\.go\\'" "\\.go\\.bak\\'")
+  :hook
+  ((go-mode . eglot-ensure)
+   (go-mode . hs-minor-mode)
+   (go-mode . my/go-mode-setup))
   :config
-  (defun my/go-mode-setup()
-    (setq tab-width 2
-          compile-command (if (string-match "_test\\.go$" (buffer-file-name))
-                              "go test -v ."
-                            "go run -v ."))
-    (local-set-key (kbd "C-c C-c") 'compile))
-  (add-hook 'go-mode-hook 'hs-minor-mode)
-  (add-hook 'go-mode-hook 'my/go-mode-setup))
+  (defun my/go-compile-command ()
+    (if (and (buffer-file-name)
+             (string-match "_test\\.go$" (buffer-file-name)))
+        "go test -v ."
+      "go run -v ."))
 
-(use-package go-mode
-  :after (eglot)
-  :config
+  (defun my/go-compile ()
+    "Go 파일에 맞는 컴파일 명령 실행"
+    (interactive)
+    (setq compile-command (my/go-compile-command))
+    (call-interactively 'compile))
+
   (defun my/go-mode-setup()
     (setq tab-width 2)
-    (when (buffer-file-name)
-      (setq compile-command (if (string-match "_test\\.go$" (buffer-file-name))
-                                "go test -v ."
-                              "go run -v .")))
     (when (eq major-mode 'go-mode)
-      (local-set-key (kbd "C-c C-c") 'compile)))
+      (local-set-key (kbd "C-c C-c") 'my/go-compile)))
 
-  (add-hook 'go-mode-hook 'hs-minor-mode)
-  (add-hook 'go-mode-hook 'my/go-mode-setup))
-
-(use-package go-tag
-  :after (go-mode))
-
-(with-eval-after-load 'eglot
-  (require 'project)
   (defun my/project-find-go-module (dir)
     (when-let ((root (locate-dominating-file dir "go.mod")))
       (cons 'go-module root)))
@@ -764,16 +753,18 @@ go install github.com/koron/iferr@master
   (cl-defmethod project-root ((project (head go-module)))
     (cdr project))
 
-  (add-hook 'project-find-functions #'my/project-find-go-module)
-
   (defun my/eglot-before-save()
     (interactive)
     (when (eq major-mode 'go-mode)
       (eglot-format-buffer)
       (call-interactively 'eglot-code-action-organize-imports)))
 
-  (add-hook 'before-save-hook #'my/eglot-before-save)
-  (add-hook 'go-mode-hook #'eglot-ensure))
+  ;; 전역 hook 설정 추가
+  (add-hook 'project-find-functions #'my/project-find-go-module)
+  (add-hook 'before-save-hook #'my/eglot-before-save))
+
+(use-package go-tag
+  :after (go-mode))
 
 (use-package ob-go
   :after (go-mode))
@@ -822,8 +813,8 @@ go install github.com/koron/iferr@master
         org-html-html5-fancy t
         org-html-validation-link nil
         org-html-head-include-default-style t)
-  :config
 
+  :config
   (defun my/get-theme-colors-for-org-html ()
     (let* ((bg-color (face-background 'default))
            (fg-color (face-foreground 'default))
@@ -918,19 +909,22 @@ pre.src {
 ;; P : 페이지 전체를 창에 맞춤 (fit page)
 ;; 0 : 원래 크기로 리셋
 (use-package pdf-tools
-  :magic ("%PDF" . pdf-view-mode)
+  :magic
+  ("%PDF" . pdf-view-mode)
   :config
   (pdf-tools-install :no-query)
-  :hook (pdf-view-mode . (lambda() (display-line-numbers-mode -1))))
+  :hook
+  (pdf-view-mode . (lambda() (display-line-numbers-mode -1))))
 
 (use-package json-mode
+  :hook
+  (json-mode . highlight-indentation-mode)
   :config
-  (setq js-indent-level tab-width)
-  (add-hook 'json-mode-hook 'highlight-indentation-mode))
+  (setq js-indent-level tab-width))
 
 (use-package yaml-mode
-  :config
-  (add-hook 'yaml-mode-hook 'highlight-indentation-mode))
+  :hook
+  (yaml-mode . highlight-indentation-mode))
 
 (use-package plantuml-mode
   :config
@@ -956,14 +950,10 @@ pre.src {
 (use-package vimrc-mode)
 #+end_src
 
-#+RESULTS:
-
 ** Mail
 
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :tangle (if (eq system-type 'windows-nt) "no" "yes")
 (use-package mu4e
-  :if (or (not (eq system-type 'windows-nt))
-          (executable-find "mu"))  ; Windows에서는 수동 설치된 mu가 있을 때만
   :straight ( :type git
               :host github
               :repo "djcb/mu"
@@ -1023,9 +1013,10 @@ pre.src {
 
 ;; Org export HTML 메일 발송
 (use-package org-mime
-  :hook (org-mime-html . (lambda ()
-                           (org-mime-change-element-style
-                            "pre" "border: 1px solid #eee;"))))
+  :hook
+  (org-mime-html . (lambda ()
+                     (org-mime-change-element-style
+                      "pre" "border: 1px solid #eee;"))))
 #+end_src
 
 * Binding
