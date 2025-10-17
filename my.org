@@ -281,7 +281,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :custom
   (exec-path-from-shell-variables '("PATH" "TMPDIR" "GOROOT" "GOPATH" "JAVA_HOME"))
   :hook
-  (after-init . exec-path-from-shell-initialize))
+  ((after-init . exec-path-from-shell-initialize)))
 #+end_src
 
 ** Evil
@@ -315,7 +315,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package evil-org
   :after org
   :hook
-  (org-mode . evil-org-mode)
+  ((org-mode . evil-org-mode))
   :config
   (evil-org-set-key-theme '(navigation insert textobjects additional calendar)))
 
@@ -441,7 +441,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package embark-consult
   :after (embark consult)
   :hook
-  (embark-collect-mode . consult-preview-at-point-mode))
+  ((embark-collect-mode . consult-preview-at-point-mode)))
 
 (use-package orderless
   :init
@@ -484,7 +484,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :init
   (defalias 'list-buffers 'ibuffer)
   :hook
-  (ibuffer-mode . ibuffer-auto-mode)
+  ((ibuffer-mode . ibuffer-auto-mode))
   :config
   (setq ibuffer-expert t
         ibuffer-default-sorting-mode 'major-mode))
@@ -500,11 +500,12 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package vterm
   :when (memq window-system '(mac ns x pgtk))
+  :demand t
   :init
   (setq vterm-always-compile-module t
         vterm-timer-delay 0.01)
   :hook
-  (vterm-mode . my/disable-line-numbers-mode)
+  ((vterm-mode . my/disable-line-numbers-mode))
   :config
   (defadvice vterm (after kill-with-no-query nil activate)
     (set-process-query-on-exit-flag (get-buffer-process ad-return-value) nil))
@@ -662,6 +663,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 #+begin_src emacs-lisp
 (use-package eglot
+  :demand t
   :init
   (setq-default eglot-workspace-configuration
                 '((:gopls . ((staticcheck . t)
@@ -914,17 +916,17 @@ pre.src {
   :config
   (pdf-tools-install :no-query)
   :hook
-  (pdf-view-mode . (lambda() (display-line-numbers-mode -1))))
+  ((pdf-view-mode . (lambda() (display-line-numbers-mode -1)))))
 
 (use-package json-mode
   :hook
-  (json-mode . highlight-indentation-mode)
+  ((json-mode . highlight-indentation-mode))
   :config
   (setq js-indent-level tab-width))
 
 (use-package yaml-mode
   :hook
-  (yaml-mode . highlight-indentation-mode))
+  ((yaml-mode . highlight-indentation-mode)))
 
 (use-package plantuml-mode
   :config
