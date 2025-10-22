@@ -964,17 +964,17 @@ pre.src {
   :config
   ;; maildir 첫 번째 경로를 context로 사용
   (add-to-list 'mu4e-header-info-custom
-               '(:context . (:name "Context"
-                                   :shortname "Ctx"
-                                   :help "Message context from maildir"
-                                   :function
-                                   (lambda (msg)
-                                     (let ((maildir (mu4e-message-field msg :maildir)))
-                                       (if maildir
-                                           (let* ((clean-path (replace-regexp-in-string "^/" "" maildir))
-                                                  (paths (split-string clean-path "/")))
-                                             (if paths (car paths) ""))
-                                         ""))))))
+               '(:context . ( :name "Context"
+                              :shortname "Ctx"
+                              :help "Message context from maildir"
+                              :function
+                              (lambda (msg)
+                                (let ((maildir (mu4e-message-field msg :maildir)))
+                                  (if maildir
+                                      (let* ((clean-path (replace-regexp-in-string "^/" "" maildir))
+                                             (paths (split-string clean-path "/")))
+                                        (if paths (car paths) ""))
+                                    ""))))))
 
   (setq read-mail-command 'mu4e
         mail-user-agent 'mu4e-user-agent
@@ -1075,7 +1075,7 @@ pre.src {
 (keymap-set my/key-map "C-c a" 'org-agenda)
 (keymap-set my/key-map "C-c c" 'org-capture)
 (keymap-set my/key-map "C-c n"
-  (lambda () (interactive) (org-agenda nil "n")))
+            (lambda () (interactive) (org-agenda nil "n")))
 
 (keymap-set my/key-map "C-c j" 'org-journal-open-current-journal-file)
 (keymap-set my/key-map "C-c J" 'org-journal-new-entry)
