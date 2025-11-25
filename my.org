@@ -1122,8 +1122,9 @@ pre.src {
 (keymap-set my/key-map "C-<" 'er/contract-region)
 (keymap-set my/key-map "C-c T" 'google-translate-at-point)
 
-(keymap-set my/key-map "<f5>"
-            (lambda () (interactive) (find-file "~/org/inbox.org")))
-(keymap-set my/key-map "<f6>" 'mu4e)
-(keymap-set my/key-map "<f7>" 'elfeed-summary)
+(keymap-set my/key-map "<f5>" (lambda () (interactive) (find-file "~/org/inbox.org")))
+(keymap-set my/key-map "<f6>" (lambda () (interactive) (find-file "~/org/ref.org")))
+(keymap-set my/key-map "<f7>" 'mu4e)
+(keymap-set my/key-map "<f8>" 'elfeed-summary)
+(keymap-set my/key-map "<f9>" (lambda () (interactive) (org-agenda t "n")))
 #+end_src
