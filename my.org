@@ -491,6 +491,27 @@ pre.src {
         ibuffer-default-sorting-mode 'major-mode))
 #+end_src
 
+** IMenu
+
+#+begin_src emacs-lisp
+(use-package imemu
+  :straight (:type built-in))
+
+(use-package imenu-list
+  :custom
+  (imenu-list-position 'right)
+  (imenu-list-size 0.2)
+  (imenu-list-focus-after-activation t)
+  (imenu-list-auto-resize t)
+  :config
+  (custom-set-faces
+   '(imenu-list-entry-face-0 ((t (:inherit font-lock-function-name-face))))
+   '(imenu-list-entry-face-1 ((t (:inherit font-lock-variable-name-face))))
+   '(imenu-list-entry-face-2 ((t (:inherit font-lock-type-face))))
+   '(imenu-list-entry-face-3 ((t (:inherit font-lock-constant-face))))
+   '(imenu-list-entry-subalist-face-0 ((t (:inherit font-lock-keyword-face :weight bold))))))
+#+end_src
+
 ** Completion
 
 #+begin_src emacs-lisp
@@ -1066,6 +1087,12 @@ go install github.com/koron/iferr@master
 (add-hook 'ielm-mode-hook
           (lambda ()
             (keymap-set my/key-map "C-j" 'ielm-return)))
+#+end_src
+
+** Bindings for Imenu
+
+#+begin_src emacs-lisp
+(keymap-set my/key-map "C-'" 'imenu-list-smart-toggle)
 #+end_src
 
 ** Bindings for [[https://github.com/bbatsov/projectile][Projectile]]
