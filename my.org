@@ -358,9 +358,11 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (corfu-auto t)
   (corfu-auto-prefix 2)
   (corfu-auto-delay 0)
+  (corfu-popupinfo-delay '(0.5 . 0.2))
 
   :config
-  (global-corfu-mode))
+  (global-corfu-mode)
+  (corfu-popupinfo-mode 1))
 
 (use-package corfu-terminal
   :unless (display-graphic-p)
@@ -381,8 +383,8 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package vertico
   :init
-  (setq vertico-count-format '("%-5s " . "%2$s")
-        vertico-resize nil)
+  ;; (setq vertico-count-format '("%-5s " . "%2$s")
+  ;;       vertico-resize nil)
   :config
   (vertico-mode 1))
 
