@@ -732,10 +732,10 @@ go install github.com/koron/iferr@master
    (go-mode . my/go-mode-setup))
   :config
   (defun my/go-compile-command ()
-    (if (and (buffer-file-name)
-             (string-match "_test\\.go$" (buffer-file-name)))
-        "go test -v ."
-      "go run -v ."))
+    (let* ((name (file-name-nondirectory (buffer-file-name)))
+           (cmd (if (string-match "_test\\.go$" name) "test" "run")))
+      ;; (format "go %s -v %s" cmd name)
+      (format "go %s -v ." cmd)))
 
   (defun my/go-compile ()
     "Go 파일에 맞는 컴파일 명령 실행"
