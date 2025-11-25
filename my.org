@@ -406,6 +406,11 @@ pre.src {
 (use-package org-tree-slide
   :after (org))
 
+(use-package org-super-agenda
+  :after org-agenda
+  :config
+  (org-super-agenda-mode))
+
 (use-package org-journal
   :after org
   :custom
