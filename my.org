@@ -106,6 +106,11 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (interactive)
   ;; '(4)는 C-u와 동일
   (org-set-tags-command '(4)))
+
+;; 현재의 테마를 비활성화하고 로딩하도록 설정한다.
+(defun my/disable-themes-before-load (theme &optional no-confirm no-enable)
+  (mapc #'disable-theme custom-enabled-themes))
+(advice-add 'load-theme :before #'my/disable-themes-before-load)
 #+end_src
 
 ** Better defaults
@@ -239,6 +244,17 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :if (eq system-type 'drawin))
 #+end_src
 
+** Environment
+
+#+begin_src emacs-lisp
+(use-package exec-path-from-shell
+  :when (memq window-system '(mac ns x pgtk))
+  :custom
+  (exec-path-from-shell-variables '("PATH" "TMPDIR" "GOROOT" "GOPATH" "JAVA_HOME"))
+  :hook
+  ((after-init . exec-path-from-shell-initialize)))
+#+end_src
+
 ** Undo
 
 #+begin_src emacs-lisp
@@ -251,37 +267,173 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (global-undo-tree-mode 1))
 #+end_src
 
-** DB
+** Org
 
 #+begin_src emacs-lisp
-(setq sql-postgres-login-params '(server port user database)
-      sql-mysql-login-params '(server port user database)
-      sql-sqlite-login-params '(server port user database)
-      sql-db2-login-params '(server port user database)
-      sql-oracle-login-params '(server port user database)
-      sql-ms-login-params '(server port user database))
-#+end_src
+(use-package org
+  :init
+  (setq org-startup-folded t
+        org-adapt-indentation nil
+        org-src-fontify-natively t
+        org-src-tab-acts-natively t
+        org-confirm-babel-evaluate nil
+        org-edit-src-content-indentation 0
+        org-imenu-depth 3
+        org-log-done 'time
+        org-babel-default-header-args:sh `((:noweb . "yes") (:results . "output"))
+        org-babel-go-command "GO111MODULE=off go"
+        org-agenda-window-setup 'current-window
+        org-agenda-start-with-log-mode '(closed)
+        org-agenda-tags-column 0
+        org-todo-keywords '((sequence "TODO(t)" "INPROGRESS(i)" "PAUSED(p)" "|"
+                                      "DONE(d)" "CANCELED(c)"))
+        org-agenda-files '("~/org/inbox.org"
+                           "~/org/gtd.org"
+                           "~/org/tickler.org")
+        org-refile-targets '(("~/org/gtd.org" :maxlevel . 1)
+                             ("~/org/someday.org" :level . 1)
+                             ("~/org/tickler.org" :maxlevel . 2))
+        org-capture-templates '(("t" "TODO [inbox]" entry
+                                 (file+headline "~/org/inbox.org" "TODOs")
+                                 "* TODO %i%?")
+                                ("T" "Tickler" entry
+                                 (file "~/org/tickler.org")
+                                 "* %i%? \n %U"))
+        org-tag-alist '(("crypt" . ?c) ("@home" . ?h) ("@office" . ?o))
+        org-babel-default-header-args '((:eval . "never-export"))
+        org-html-postamble nil
+        org-html-doctype "html5"
+        org-html-html5-fancy t
+        org-html-validation-link nil
+        org-html-head-include-default-style t)
 
-** Visual
+  :config
+  (defun my/get-theme-colors-for-org-html ()
+    (let* ((bg-color (face-background 'default))
+           (fg-color (face-foreground 'default))
+           (comment-color (face-foreground 'font-lock-comment-face))
+           (keyword-color (face-foreground 'font-lock-keyword-face))
+           (string-color (face-foreground 'font-lock-string-face)))
+      (format "<style>
+pre.src {
+  background-color: %s !important;
+  color: %s !important;
+  border: 1px solid %s;
+  padding: 1rem;
+  border-radius: 6px;
+}
+.org-comment { color: %s !important; }
+.org-keyword { color: %s !important; }
+.org-string { color: %s !important; }
+</style>"
+              bg-color fg-color comment-color
+              comment-color keyword-color string-color)))
 
-#+begin_src emacs-lisp
-;; 현재의 테마를 비활성화하고 로딩하도록 설정한다.
-(defun my/disable-themes-before-load (theme &optional no-confirm no-enable)
-  (mapc #'disable-theme custom-enabled-themes))
-(advice-add 'load-theme :before #'my/disable-themes-before-load)
+  (defun my/update-org-html-theme ()
+    (setq org-html-head (my/get-theme-colors-for-org-html)))
 
-;; (load-theme 'zenburn t)
-#+end_src
+  ;; 테마 변경 시 적용
+  (add-hook 'enable-theme-functions
+            (lambda (theme) (my/update-org-html-theme)))
+  (advice-add 'disable-theme :after
+              (lambda (&rest _) (my/update-org-html-theme)))
 
-** Environment
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((python . t)
+     (ditaa . t)
+     (java . t)
+     (go . t)
+     (js . t)
+     (C . t)
+     (shell . t)
+     (plantuml . t)))
 
-#+begin_src emacs-lisp
-(use-package exec-path-from-shell
-  :when (memq window-system '(mac ns x pgtk))
+  (dolist (temp
+           '(("sh" . "src sh \n")
+             ("u" . "src plantuml :file ?.png :cmdline -charset UTF-8\n")
+             ("t" . "src typescript :cmdline -t es6 \n")))
+    (add-to-list 'org-structure-template-alist temp))
+  (require 'org-tempo)
+  (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
+  (custom-set-variables `(org-emphasis-alist ',org-emphasis-alist)))
+
+(use-package epa-file
+  :after (org)
+  :straight (:type built-in)
+  :autoload epa-file-enable)
+
+(use-package org-crypt
+  :after (org)
+  :straight (:type built-in)
+  :config
+  (setq epa-file-select-keys nil
+        epg-pinentry-mode 'loopback
+        auth-sources '((:source "~/.authinfo.gpg"))
+        org-crypt-key nil
+        org-tags-exclude-from-inheritance (quote ("crypt")))
+  ;; 암호 항목에 대한 tangle 내보내기 문제 해결
+  (org-crypt-use-before-save-magic)
+  (defun my/reveal-and-move-back ()
+    (org-reveal)
+    (goto-char my/old-point))
+  (defun my/org-reveal-after-save-on ()
+    (setq my/old-point (point))
+    (add-hook 'after-save-hook 'my/reveal-and-move-back))
+  (defun my/org-reveal-after-save-off ()
+    (remove-hook 'after-save-hook 'my/reveal-and-move-back))
+  (add-hook 'org-babel-pre-tangle-hook 'my/org-reveal-after-save-on)
+  (add-hook 'org-babel-post-tangle-hook 'my/org-reveal-after-save-off))
+
+(use-package ox-gfm
+  :after (org)
+  :config
+  (defun my/org-gfm-format-toc (headline info)
+    "Return an appropriate table of contents entry for HEADLINE."
+    (let* ((title (org-export-data (org-element-property :title headline) info))
+           (level (org-export-get-relative-level headline info))
+           (indent (concat (make-string (* (1- level) 2) ?\s)))
+           ;; GitHub style
+           (anchor (or (org-element-property :CUSTOM_ID headline)
+                       (replace-regexp-in-string
+                        "[^a-z0-9-]" ""
+                        (replace-regexp-in-string
+                         " " "-"
+                         (downcase title))))))
+      (concat indent "- [" title "](#" anchor ")")))
+  (advice-add 'org-gfm-format-toc :override #'my/org-gfm-format-toc))
+
+(use-package org-tree-slide
+  :after (org))
+
+(use-package org-journal
+  :after org
   :custom
-  (exec-path-from-shell-variables '("PATH" "TMPDIR" "GOROOT" "GOPATH" "JAVA_HOME"))
+  (org-journal-dir "~/org/journal/")
+  (org-journal-search-result-date-format "%A, %Y-%m-%d")
+  (org-journal-time-format "<%Y-%m-%d %a %H:%M>")
+  (org-journal-file-format "%Y/%m/%Y%m%d.org")
+  (org-journal-file-type 'weekly)
+  (org-journal-file-header "#+TITLE: %Y.%m Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
+  (org-journal-enable-agenda-integration t)
+  :config
+  ;; 캘린더 설정
+  (custom-set-faces
+   '(calendar-today ((t (:background "#CC9393" :underline t))))
+   '(org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic))))))
+#+end_src
+
+** Olivetti
+
+#+begin_src emacs-lisp
+(use-package olivetti
+  :init
+  (setq-default olivetti-body-width 82)
   :hook
-  ((after-init . exec-path-from-shell-initialize)))
+  ((olivetti-mode-on . my/disable-line-numbers-mode)
+   (olivetti-mode-off . my/enable-line-numbers-mode))
+  :config
+  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
 #+end_src
 
 ** Evil
@@ -325,24 +477,18 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :config (evil-org-agenda-set-keys))
 #+end_src
 
-** [[https://github.com/bastibe/org-journal][Journal]]
+** Ibuffer
 
 #+begin_src emacs-lisp
-(use-package org-journal
-  :after org
-  :custom
-  (org-journal-dir "~/org/journal/")
-  (org-journal-search-result-date-format "%A, %Y-%m-%d")
-  (org-journal-time-format "<%Y-%m-%d %a %H:%M>")
-  (org-journal-file-format "%Y/%m/%Y%m%d.org")
-  (org-journal-file-type 'weekly)
-  (org-journal-file-header "#+TITLE: %Y.%m Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
-  (org-journal-enable-agenda-integration t)
+(use-package ibuffer
+  :straight (:type built-in)
+  :init
+  (defalias 'list-buffers 'ibuffer)
+  :hook
+  ((ibuffer-mode . ibuffer-auto-mode))
   :config
-  ;; 캘린더 설정
-  (custom-set-faces
-   '(calendar-today ((t (:background "#CC9393" :underline t))))
-   '(org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic))))))
+  (setq ibuffer-expert t
+        ibuffer-default-sorting-mode 'major-mode))
 #+end_src
 
 ** Completion
@@ -452,76 +598,6 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
         completion-category-overrides '((file (styles partial-completion)))))
 #+end_src
 
-** Translate
-
-#+begin_src emacs-lisp
-(use-package google-translate
-  :init
-  (setq google-translate-default-source-language "en"
-        google-translate-default-target-language "ko"
-        google-translate-output-destination nil)
-  (defun google-translate--search-tkk ()
-    "https://github.com/atykhonov/google-translate/issues/137"
-    (list 430675 2721866130)))
-#+end_src
-
-** Olivetti
-
-#+begin_src emacs-lisp
-(use-package olivetti
-  :init
-  (setq-default olivetti-body-width 82)
-  :hook
-  ((olivetti-mode-on . my/disable-line-numbers-mode)
-   (olivetti-mode-off . my/enable-line-numbers-mode))
-  :config
-  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
-#+end_src
-
-** Ibuffer
-
-#+begin_src emacs-lisp
-(use-package ibuffer
-  :straight (:type built-in)
-  :init
-  (defalias 'list-buffers 'ibuffer)
-  :hook
-  ((ibuffer-mode . ibuffer-auto-mode))
-  :config
-  (setq ibuffer-expert t
-        ibuffer-default-sorting-mode 'major-mode))
-#+end_src
-
-** Shell
-
-#+begin_src emacs-lisp
-(use-package eshell
-  :straight (:type built-in)
-  :init
-  (defalias 'my/sh 'eshell))
-
-(use-package vterm
-  :when (memq window-system '(mac ns x pgtk))
-  :demand t
-  :init
-  (setq vterm-always-compile-module t
-        vterm-timer-delay 0.01)
-  :hook
-  ((vterm-mode . my/disable-line-numbers-mode))
-  :config
-  (defadvice vterm (after kill-with-no-query nil activate)
-    (set-process-query-on-exit-flag (get-buffer-process ad-return-value) nil))
-  (defalias 'my/sh 'vterm))
-
-(defun my/switch-sh (n)
-  "shell 버퍼 변경"
-  (let ((buffer-name (format "sh<%d>" n)))
-    (cond ((get-buffer buffer-name)
-           (switch-to-buffer buffer-name))
-          (t (my/sh buffer-name)
-             (rename-buffer buffer-name)))))
-#+end_src
-
 ** Projectile
 
 #+begin_src emacs-lisp
@@ -560,6 +636,19 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package treemacs-projectile
   :after (treemacs projectile))
+#+end_src
+
+** Translate
+
+#+begin_src emacs-lisp
+(use-package google-translate
+  :init
+  (setq google-translate-default-source-language "en"
+        google-translate-default-target-language "ko"
+        google-translate-output-destination nil)
+  (defun google-translate--search-tkk ()
+    "https://github.com/atykhonov/google-translate/issues/137"
+    (list 430675 2721866130)))
 #+end_src
 
 ** Elfeed
@@ -661,6 +750,36 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
     "E" #'my/elfeed-export-flagged))
 #+end_src
 
+** Shell
+
+#+begin_src emacs-lisp
+(use-package eshell
+  :straight (:type built-in)
+  :init
+  (defalias 'my/sh 'eshell))
+
+(use-package vterm
+  :when (memq window-system '(mac ns x pgtk))
+  :demand t
+  :init
+  (setq vterm-always-compile-module t
+        vterm-timer-delay 0.01)
+  :hook
+  ((vterm-mode . my/disable-line-numbers-mode))
+  :config
+  (defadvice vterm (after kill-with-no-query nil activate)
+    (set-process-query-on-exit-flag (get-buffer-process ad-return-value) nil))
+  (defalias 'my/sh 'vterm))
+
+(defun my/switch-sh (n)
+  "shell 버퍼 변경"
+  (let ((buffer-name (format "sh<%d>" n)))
+    (cond ((get-buffer buffer-name)
+           (switch-to-buffer buffer-name))
+          (t (my/sh buffer-name)
+             (rename-buffer buffer-name)))))
+#+end_src
+
 ** Eglot
 
 #+begin_src emacs-lisp
@@ -684,6 +803,17 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package consult-eglot
   :after (eglot consult))
+#+end_src
+
+** DB
+
+#+begin_src emacs-lisp
+(setq sql-postgres-login-params '(server port user database)
+      sql-mysql-login-params '(server port user database)
+      sql-sqlite-login-params '(server port user database)
+      sql-db2-login-params '(server port user database)
+      sql-oracle-login-params '(server port user database)
+      sql-ms-login-params '(server port user database))
 #+end_src
 
 ** Lisp
@@ -782,140 +912,6 @@ go install github.com/koron/iferr@master
 ;;   ;; (setq lombok-jar-path (expand-file-name "bin/lombok-1.18.jar" user-emacs-directory))
 ;;   ;; (add-to-list 'eglot-java-eclipse-jdt-args (concat "-javaagent:" lombok-jar-path))
 ;;   (add-hook 'java-mode-hook 'eglot-java-mode))
-#+end_src
-
-** Org
-
-#+begin_src emacs-lisp
-(use-package org
-  :init
-  (setq org-startup-folded t
-        org-adapt-indentation nil
-        org-src-fontify-natively t
-        org-src-tab-acts-natively t
-        org-confirm-babel-evaluate nil
-        org-edit-src-content-indentation 0
-        org-imenu-depth 3
-        org-log-done 'time
-        org-babel-default-header-args:sh `((:noweb . "yes") (:results . "output"))
-        org-babel-go-command "GO111MODULE=off go"
-        org-agenda-window-setup 'current-window
-        org-agenda-start-with-log-mode '(closed)
-        org-agenda-tags-column 0
-        org-todo-keywords '((sequence "TODO(t)" "INPROGRESS(i)" "PAUSED(p)" "|"
-                                      "DONE(d)" "CANCELED(c)"))
-        org-agenda-files '("~/org/inbox.org" "~/org/gtd.org" "~/org/tickler.org")
-        org-refile-targets '(("~/org/gtd.org" :maxlevel . 1)
-                             ("~/org/someday.org" :level . 1)
-                             ("~/org/tickler.org" :maxlevel . 2))
-        org-capture-templates '(("t" "TODO [inbox]" entry (file "~/org/inbox.org") "* TODO %i%?")
-                                ("T" "Tickler" entry (file "~/org/tickler.org") "* %i%? \n %U"))
-        org-tag-alist '(("crypt" . ?c) ("@home" . ?h) ("@office" . ?o))
-        org-babel-default-header-args '((:eval . "never-export"))
-        org-html-postamble nil
-        org-html-doctype "html5"
-        org-html-html5-fancy t
-        org-html-validation-link nil
-        org-html-head-include-default-style t)
-
-  :config
-  (defun my/get-theme-colors-for-org-html ()
-    (let* ((bg-color (face-background 'default))
-           (fg-color (face-foreground 'default))
-           (comment-color (face-foreground 'font-lock-comment-face))
-           (keyword-color (face-foreground 'font-lock-keyword-face))
-           (string-color (face-foreground 'font-lock-string-face)))
-      (format "<style>
-pre.src {
-  background-color: %s !important;
-  color: %s !important;
-  border: 1px solid %s;
-  padding: 1rem;
-  border-radius: 6px;
-}
-.org-comment { color: %s !important; }
-.org-keyword { color: %s !important; }
-.org-string { color: %s !important; }
-</style>"
-              bg-color fg-color comment-color
-              comment-color keyword-color string-color)))
-
-  (defun my/update-org-html-theme ()
-    (setq org-html-head (my/get-theme-colors-for-org-html)))
-
-  ;; 테마 변경 시 적용
-  (add-hook 'enable-theme-functions
-            (lambda (theme) (my/update-org-html-theme)))
-  (advice-add 'disable-theme :after
-              (lambda (&rest _) (my/update-org-html-theme)))
-
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((python . t)
-     (ditaa . t)
-     (java . t)
-     (go . t)
-     (js . t)
-     (C . t)
-     (shell . t)
-     (plantuml . t)))
-
-  (dolist (temp
-           '(("sh" . "src sh \n")
-             ("u" . "src plantuml :file ?.png :cmdline -charset UTF-8\n")
-             ("t" . "src typescript :cmdline -t es6 \n")))
-    (add-to-list 'org-structure-template-alist temp))
-  (require 'org-tempo)
-  (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
-  (custom-set-variables `(org-emphasis-alist ',org-emphasis-alist)))
-
-(use-package epa-file
-  :after (org)
-  :straight (:type built-in)
-  :autoload epa-file-enable)
-
-(use-package org-crypt
-  :after (org)
-  :straight (:type built-in)
-  :config
-  (setq epa-file-select-keys nil
-        epg-pinentry-mode 'loopback
-        auth-sources '((:source "~/.authinfo.gpg"))
-        org-crypt-key nil
-        org-tags-exclude-from-inheritance (quote ("crypt")))
-  ;; 암호 항목에 대한 tangle 내보내기 문제 해결
-  (org-crypt-use-before-save-magic)
-  (defun my/reveal-and-move-back ()
-    (org-reveal)
-    (goto-char my/old-point))
-  (defun my/org-reveal-after-save-on ()
-    (setq my/old-point (point))
-    (add-hook 'after-save-hook 'my/reveal-and-move-back))
-  (defun my/org-reveal-after-save-off ()
-    (remove-hook 'after-save-hook 'my/reveal-and-move-back))
-  (add-hook 'org-babel-pre-tangle-hook 'my/org-reveal-after-save-on)
-  (add-hook 'org-babel-post-tangle-hook 'my/org-reveal-after-save-off))
-
-(use-package ox-gfm
-  :after (org)
-  :config
-  (defun my/org-gfm-format-toc (headline info)
-    "Return an appropriate table of contents entry for HEADLINE."
-    (let* ((title (org-export-data (org-element-property :title headline) info))
-           (level (org-export-get-relative-level headline info))
-           (indent (concat (make-string (* (1- level) 2) ?\s)))
-           ;; GitHub style
-           (anchor (or (org-element-property :CUSTOM_ID headline)
-                       (replace-regexp-in-string
-                        "[^a-z0-9-]" ""
-                        (replace-regexp-in-string
-                         " " "-"
-                         (downcase title))))))
-      (concat indent "- [" title "](#" anchor ")")))
-  (advice-add 'org-gfm-format-toc :override #'my/org-gfm-format-toc))
-
-(use-package org-tree-slide
-  :after (org))
 #+end_src
 
 ** File Syntax
