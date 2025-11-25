@@ -895,7 +895,22 @@ pre.src {
   (add-hook 'org-babel-post-tangle-hook 'my/org-reveal-after-save-off))
 
 (use-package ox-gfm
-  :after (org))
+  :after (org)
+  :config
+  (defun my/org-gfm-format-toc (headline info)
+    "Return an appropriate table of contents entry for HEADLINE."
+    (let* ((title (org-export-data (org-element-property :title headline) info))
+           (level (org-export-get-relative-level headline info))
+           (indent (concat (make-string (* (1- level) 2) ?\s)))
+           ;; GitHub style
+           (anchor (or (org-element-property :CUSTOM_ID headline)
+                       (replace-regexp-in-string
+                        "[^a-z0-9-]" ""
+                        (replace-regexp-in-string
+                         " " "-"
+                         (downcase title))))))
+      (concat indent "- [" title "](#" anchor ")")))
+  (advice-add 'org-gfm-format-toc :override #'my/org-gfm-format-toc))
 
 (use-package org-tree-slide
   :after (org))
