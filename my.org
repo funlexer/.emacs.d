@@ -964,6 +964,7 @@ pre.src {
   :config
   (add-to-list 'auto-mode-alist '("Dockerfile.*\\'" . dockerfile-mode)))
 
+(use-package rust-mode)
 (use-package adoc-mode)
 (use-package js2-mode)
 (use-package groovy-mode)
