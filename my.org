@@ -333,31 +333,33 @@ pre.src {
   (defun my/update-org-html-theme ()
     (setq org-html-head (my/get-theme-colors-for-org-html)))
 
-  ;; 테마 변경 시 적용
-  (add-hook 'enable-theme-functions
-            (lambda (theme) (my/update-org-html-theme)))
-  (advice-add 'disable-theme :after
-              (lambda (&rest _) (my/update-org-html-theme)))
+  (defun my/org-mode-after-setup ()
+    "Org Mode가 완전하게 로딩된 이후에 실행할 설정"
+    (require 'org-tempo)
+    (add-to-list 'org-structure-template-alist '("sh" . "src sh"))
+    (add-to-list 'org-structure-template-alist '("u" . "src plantuml :file ?.png :cmdline -charset UTF-8"))
+    (add-to-list 'org-structure-template-alist '("t" . "src typescript :cmdline -t es6"))
 
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((python . t)
-     (ditaa . t)
-     (java . t)
-     (go . t)
-     (js . t)
-     (C . t)
-     (shell . t)
-     (plantuml . t)))
+    (org-babel-do-load-languages
+     'org-babel-load-languages
+     '((python . t)
+       (ditaa . t)
+       (java . t)
+       (go . t)
+       (js . t)
+       (C . t)
+       (shell . t)
+       (plantuml . t)))
+    ;; org-mode 내에서 *bold* 등의 강조 문법 인식 경계 설정
+    (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
+    (custom-set-variables `(org-emphasis-alist ',org-emphasis-alist))
 
-  (dolist (temp
-           '(("sh" . "src sh \n")
-             ("u" . "src plantuml :file ?.png :cmdline -charset UTF-8\n")
-             ("t" . "src typescript :cmdline -t es6 \n")))
-    (add-to-list 'org-structure-template-alist temp))
-  (require 'org-tempo)
-  (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
-  (custom-set-variables `(org-emphasis-alist ',org-emphasis-alist)))
+    ;; 테마 변경 시 적용
+    (add-hook 'enable-theme-functions
+              (lambda (theme) (my/update-org-html-theme)))
+    (advice-add 'disable-theme :after
+                (lambda (&rest _) (my/update-org-html-theme))))
+  :hook (org-mode . my/org-mode-after-setup))
 
 (use-package epa-file
   :after (org)
