@@ -143,6 +143,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
  use-short-answers t                           ; y-or-n-p
  recentf-max-saved-items 100                   ; Show more recent files
  recentf-exclude '("/var/folders/*" "^/tmp/*") ; 최근파일 제외
+ find-file-visit-truename nil                  ; 심볼릭 링크를 그대로 유지하도록 설정
  customize-save-defaults nil)                  ; Customize를 기본적으로 저장하지 않도록 설정
 
 ;; read-extended-command-predicate 설정
