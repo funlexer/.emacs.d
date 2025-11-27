@@ -811,8 +811,33 @@ pre.src {
                          (set-process-query-on-exit-flag proc nil))))
   (defalias 'my/sh 'vterm))
 
+(use-package zsh-mode
+  :straight nil
+  :after sh-script
+  :commands zsh-mode
+  :mode (("\\.zsh\\'"  . zsh-mode)
+         ("zshrc\\'"   . zsh-mode)
+         ("zshenv\\'"  . zsh-mode))
+  :init
+  (define-derived-mode zsh-mode sh-mode "Zsh"
+    "Major mode for editing Zsh shell scripts."
+    (sh-set-shell "zsh")
+
+    (font-lock-add-keywords
+     nil
+     '(("\\<\\(autoload\\|compdef\\|zstyle\\|bindkey\\|setopt\\|unsetopt\\)\\>"
+        1 font-lock-keyword-face)))
+
+    (setq imenu-generic-expression
+          '(("Functions" "^\\s-*function\\s-+\\([A-Za-z_/][A-Za-z_0-9/:-]*\\)" 1)
+            ("Functions" "^\\s-*\\([A-Za-z_/][A-Za-z_0-9/:-]*\\)\\s-*()" 1)
+            ("Variables" "^\\s-*\\([A-Za-z_][A-Za-z_0-9]*\\)=" 1)
+            ("Local Variables" "^\\s-*local\\s-+\\([A-Za-z_][A-Za-z_0-9]*\\)" 1)
+            ("Autoload" "^\\s-*autoload\\s-+\\([A-Za-z_/][A-Za-z_0-9/:-]*\\)" 1)
+            ("Aliases" "^\\s-*alias\\s-+\\([A-Za-z_/][A-Za-z_0-9/:-]*\\)" 1)))))
+
 (defun my/switch-sh (n)
-  "shell 버퍼 변경"
+  "Shell 버퍼 변경"
   (let ((buffer-name (format "sh<%d>" n)))
     (cond ((get-buffer buffer-name)
            (switch-to-buffer buffer-name))
