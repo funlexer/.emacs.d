@@ -796,8 +796,10 @@ pre.src {
   :hook
   ((vterm-mode . my/disable-line-numbers-mode))
   :config
-  (defadvice vterm (after kill-with-no-query nil activate)
-    (set-process-query-on-exit-flag (get-buffer-process ad-return-value) nil))
+  (advice-add 'vterm :after
+              (lambda (buffer)
+                (when-let ((proc (get-buffer-process buffer)))
+                  (set-process-query-on-exit-flag proc nil))))
   (defalias 'my/sh 'vterm))
 
 (defun my/switch-sh (n)
