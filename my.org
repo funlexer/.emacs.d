@@ -110,7 +110,8 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 ;; 현재의 테마를 비활성화하고 로딩하도록 설정한다.
 (defun my/disable-themes-before-load (theme &optional no-confirm no-enable)
   (mapc #'disable-theme custom-enabled-themes))
-(advice-add 'load-theme :before #'my/disable-themes-before-load)
+(advice-add 'load-theme
+            :before #'my/disable-themes-before-load)
 #+end_src
 
 ** Better defaults
@@ -336,9 +337,11 @@ pre.src {
   (defun my/org-mode-after-setup ()
     "Org Mode가 완전하게 로딩된 이후에 실행할 설정"
     (require 'org-tempo)
-    (add-to-list 'org-structure-template-alist '("sh" . "src sh"))
-    (add-to-list 'org-structure-template-alist '("u" . "src plantuml :file ?.png :cmdline -charset UTF-8"))
-    (add-to-list 'org-structure-template-alist '("t" . "src typescript :cmdline -t es6"))
+    (setq org-structure-template-alist
+          (append org-structure-template-alist
+                  '(("sh" . "src sh")
+                    ("u"  . "src plantuml :file ?.png :cmdline -charset UTF-8")
+                    ("t"  . "src typescript :cmdline -t es6"))))
 
     (org-babel-do-load-languages
      'org-babel-load-languages
@@ -357,8 +360,8 @@ pre.src {
     ;; 테마 변경 시 적용
     (add-hook 'enable-theme-functions
               (lambda (theme) (my/update-org-html-theme)))
-    (advice-add 'disable-theme :after
-                (lambda (&rest _) (my/update-org-html-theme))))
+    (advice-add 'disable-theme
+                :after (lambda (&rest _) (my/update-org-html-theme))))
   :hook (org-mode . my/org-mode-after-setup))
 
 (use-package epa-file
@@ -404,7 +407,9 @@ pre.src {
                          " " "-"
                          (downcase title))))))
       (concat indent "- [" title "](#" anchor ")")))
-  (advice-add 'org-gfm-format-toc :override #'my/org-gfm-format-toc))
+
+  (advice-add 'org-gfm-format-toc
+              :override #'my/org-gfm-format-toc))
 
 (use-package org-tree-slide
   :after (org))
@@ -458,7 +463,9 @@ pre.src {
   ;; evil-collection mu4e 1.10 버전 호환성 이슈
   (defun mu4e--main-action-str (str &optional func-or-shortcut))
   (defun evil-collection-mu3e-update-main-view@override())
-  (advice-add 'evil-collection-mu3e-update-main-view :override #'evil-collection-mu4e-update-main-view@override)
+
+  (advice-add 'evil-collection-mu3e-update-main-view
+              :override #'evil-collection-mu4e-update-main-view@override)
 
   (evil-ex-define-cmd "q" 'kill-this-buffer)
   (evil-ex-define-cmd "quit" 'evil-quit))
@@ -468,6 +475,7 @@ pre.src {
   :config
   (defun mu4e--main-action-str (str &optional func-or-shortcut))
   (defun evil-collection-mu3e-update-main-view@override())
+
   (advice-add 'evil-collection-mu3e-update-main-view
               :override #'evil-collection-mu4e-update-main-view@override)
   (evil-collection-init))
@@ -568,7 +576,8 @@ pre.src {
   (setq register-preview-delay 0.5
         register-preview-function #'consult-register-format)
   :config
-  (advice-add #'register-preview :override #'consult-register-window))
+  (advice-add #'register-preview
+              :override #'consult-register-window))
 
 (use-package consult-projectile
   :after (consult projectile)
@@ -796,10 +805,10 @@ pre.src {
   :hook
   ((vterm-mode . my/disable-line-numbers-mode))
   :config
-  (advice-add 'vterm :after
-              (lambda (buffer)
-                (when-let ((proc (get-buffer-process buffer)))
-                  (set-process-query-on-exit-flag proc nil))))
+  (advice-add 'vterm
+              :after (lambda (buffer)
+                       (when-let ((proc (get-buffer-process buffer)))
+                         (set-process-query-on-exit-flag proc nil))))
   (defalias 'my/sh 'vterm))
 
 (defun my/switch-sh (n)
@@ -990,8 +999,8 @@ go install github.com/koron/iferr@master
   (setq markdown-command "multimarkdown"))
 
 (use-package dockerfile-mode
-  :config
-  (add-to-list 'auto-mode-alist '("Dockerfile.*\\'" . dockerfile-mode)))
+  :mode
+  (("Dockerfile.*\\'" . dockerfile-mode)))
 
 (use-package rust-mode)
 (use-package adoc-mode)
