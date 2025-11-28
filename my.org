@@ -515,11 +515,17 @@ pre.src {
   (evil-collection-init))
 
 (use-package evil-org
-  :after org
+  :after (evil org)
   :hook
   ((org-mode . evil-org-mode))
   :config
-  (evil-org-set-key-theme '(navigation insert textobjects additional calendar)))
+  (evil-org-set-key-theme '(navigation insert textobjects additional calendar))
+  ;; shift+hjkl로 날짜/우선순위/TODO 조절
+  (evil-define-key 'normal org-mode-map
+    (kbd "H") 'org-shiftleft    ;; shift+h
+    (kbd "L") 'org-shiftright   ;; shift+l
+    (kbd "K") 'org-shiftup      ;; shift+k
+    (kbd "J") 'org-shiftdown))  ;; shift+j
 
 (use-package evil-org-agenda
   :after evil-org
@@ -726,6 +732,7 @@ pre.src {
 
 #+begin_src emacs-lisp
 (use-package elfeed
+  :after evil
   :init
   (setq-default elfeed-search-filter "@1-month-ago +unread "
                 elfeed-curl-extra-arguments '("--insecure")
@@ -791,7 +798,12 @@ pre.src {
         (save-buffer)
         (if (> exported-count 0)
             (message "Appended %d new entries to ~/org/feed.org" exported-count)
-          (message "No new entries to export"))))))
+          (message "No new entries to export")))))
+  :config
+  (evil-define-key 'normal elfeed-search-mode-map
+    (kbd "f") #'my/elfeed-toggle-flagged
+    (kbd "F") #'my/elfeed-show-flagged
+    (kbd "E") #'my/elfeed-export-flagged))
 
 (use-package elfeed-org
   :after (elfeed org)
@@ -813,12 +825,6 @@ pre.src {
         (append display-buffer-alist
                 '(("\\*elfeed-summary\\*"
                    (display-buffer-same-window))))))
-
-(with-eval-after-load 'evil-collection
-  (evil-collection-define-key 'normal 'elfeed-search-mode-map
-    "f" #'my/elfeed-toggle-flagged
-    "F" #'my/elfeed-show-flagged
-    "E" #'my/elfeed-export-flagged))
 #+end_src
 
 ** Shell
