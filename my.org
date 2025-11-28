@@ -700,7 +700,8 @@ pre.src {
   :after org
   :custom
   (org-journal-dir "~/org/journal/")
-  (org-journal-search-result-date-format "%A, %Y-%m-%d")
+  (org-journal-search-result-date-format "%Y-%m-%d, %A")
+  (org-journal-date-format "%Y-%m-%d, %A")
   (org-journal-time-format "<%Y-%m-%d %a %H:%M>")
   (org-journal-file-format "%Y/%m/%Y%m%d.org")
   (org-journal-file-type 'weekly)
