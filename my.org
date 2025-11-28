@@ -118,47 +118,52 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 #+begin_src emacs-lisp
 (setq-default
- auto-revert-interval 1                        ; 버퍼를 빠르게 새로고침
- warning-minimum-level :emergency              ; 네이티브 컴파일 경고 끄기
- system-time-locale "C"                        ; 시스템 로케일
- echo-keystrokes 0.1                           ; Show keystrokes asap
- inhibit-startup-screen t                      ; No splash screen please
- initial-scratch-message nil                   ; Clean scratch buffer
- ring-bell-function 'ignore                    ; Quiet
- scroll-margin 1                               ; Space between cursor and top/bottom
- sentence-end-double-space nil                 ; No double space
- vc-handled-backends nil                       ; Ignore Default VCS (use magit)
- ad-redefinition-action 'accept                ; ad-handle-definition Warning ignore
- display-time-format "%Y-%m-%dT%H:%M"          ; Powerline 날짜 포맷
- display-time-default-load-average nil         ; Do not display the load average
- default-input-method "korean-hangul"          ; 기본 입력
- tab-width 2                                   ; Smaller tabs
- sh-basic-offset 2                             ; SHELL 스타일 기본 들여쓰기
- c-basic-offset 2                              ; C 스타일 기본 들여쓰기
- fill-column 79                                ; Maximum line width
- truncate-lines t                              ; Don't fold lines
- indent-tabs-mode nil                          ; Use spaces instead of tabs
- split-width-threshold 160                     ; Split verticly by default
- split-height-threshold nil                    ; Split verticly by default
- frame-resize-pixelwise t                      ; Fine-grained frame resize
- use-short-answers t                           ; y-or-n-p
- recentf-max-saved-items 100                   ; Show more recent files
- recentf-exclude '("/var/folders/*" "^/tmp/*") ; 최근파일 제외
- find-file-visit-truename nil                  ; 심볼릭 링크를 그대로 유지하도록 설정
- customize-save-defaults nil)                  ; Customize를 기본적으로 저장하지 않도록 설정
+ auto-revert-interval 1                        ;; 버퍼를 빠르게 새로고침
+ warning-minimum-level :emergency              ;; 네이티브 컴파일 경고 끄기
+ system-time-locale "C"                        ;; 시스템 로케일
+ echo-keystrokes 0.1                           ;; 키 입력 즉시 표시
+ inhibit-startup-screen t                      ;; 시작 스플래시 제거
+ initial-scratch-message nil                   ;; scratch 버퍼 비우기
+ ring-bell-function 'ignore                    ;; 경고음 끄기
+ scroll-margin 1                               ;; 스크롤 여백
+ sentence-end-double-space nil                 ;; 문장 끝 두칸 공백 비활성화
+ vc-handled-backends nil                       ;; 기본 VCS 무시 (magit 사용)
+ ad-redefinition-action 'accept                ;; ad-handle-definition 경고 무시
+ display-time-default-load-average nil         ;; load average 표시 안함
+ default-input-method "korean-hangul"          ;; 기본 입력기
+ tab-width 2                                   ;; 탭 폭 2
+ sh-basic-offset 2                             ;; Shell 기본 들여쓰기
+ c-basic-offset 2                              ;; C 계열 기본 들여쓰기
+ fill-column 79                                ;; 최대 줄 너비
+ truncate-lines t                              ;; 줄 개행 안함
+ indent-tabs-mode nil                          ;; Tab 대신 space 사용
+ split-width-threshold 160                     ;; 기본 수직 분할 기준
+ split-height-threshold nil                    ;; 기본 수직 분할 기준
+ frame-resize-pixelwise t                      ;; 프레임 픽셀 단위 조절
+ use-short-answers t                           ;; y/n 사용
+ find-file-visit-truename nil                  ;; 심볼릭 링크를 그대로 유지하도록 설정
+)
 
-;; read-extended-command-predicate 설정
+
+;; 키 입력 명령 필터
 (setq read-extended-command-predicate #'command-completion-default-include-p)
 
-;; 백업 파일을 단일 디렉토리에 저장한다.
+;; 백업 파일을 단일 디렉토리에 저장
 (let ((dir (expand-file-name "auto-save-list" user-emacs-directory)))
   (setq backup-directory-alist `((".*" . ,dir))
         auto-save-file-name-transforms `((".*" ,dir t))))
 
-;; 사용자 정의 변수 (defcustom으로 정의된 변수)
-(custom-set-variables
- '(display-time-format "%Y-%m-%dT%H:%M") ; Powerline 날짜 포맷
- '(tab-always-indent 'complete))
+;; 경고음 끄기
+(put 'narrow-to-region 'disabled -1)
+
+;; 일반 메시지모드에서도 org 테이블 사용
+(add-hook 'message-mode-hook 'turn-on-orgtbl)
+
+;; 디스크 파일 변경 시, 자동 새로고침
+(add-hook 'doc-view-mode-hook 'auto-revert-mode)
+
+;; whitespace 정리
+(add-hook 'before-save-hook 'delete-trailing-whitespace)
 
 (when (eq system-type 'darwin)
   (setq ns-pop-up-frames nil
@@ -169,26 +174,60 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (when (fboundp 'mac-auto-operator-composition-mode)
     (mac-auto-operator-composition-mode t)))
 
-;; 경고음 끄기
-(put 'narrow-to-region 'disabled -1)
-;; 일반 메시지모드에서도 org 테이블 사용
-(add-hook 'message-mode-hook 'turn-on-orgtbl)
-;; 디스크 파일 변경 시, 자동 반영
-(add-hook 'doc-view-mode-hook 'auto-revert-mode)
-;; whitespace remove
-(add-hook 'before-save-hook 'delete-trailing-whitespace)
-(global-display-line-numbers-mode 1)
-(column-number-mode 1)
-(delete-selection-mode 1)
-(dirtrack-mode 1)
-(recentf-mode 1)
-(show-paren-mode 1)
-(display-time-mode 1)
-;; (global-so-long-mode 1)
-(tool-bar-mode -1)
-(scroll-bar-mode -1)
-(menu-bar-mode -1)
-(blink-cursor-mode -1)
+;; hook/mode/display 관련 설정
+(use-package emacs
+  :straight (:type built-in)
+  :custom
+  (display-time-format "%Y-%m-%dT%H:%M")
+  (tab-always-indent 'complete)
+  :config
+  (global-display-line-numbers-mode 1)
+  (display-time-mode 1)
+  (dirtrack-mode 1)
+  (blink-cursor-mode -1)
+  (menu-bar-mode -1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1))
+
+(use-package recentf
+  :straight (:type built-in)
+  :custom
+  (recentf-max-saved-items 100)
+  (recentf-exclude '("/var/folders/*" "^/tmp/*"))
+  :config
+  (recentf-mode 1))
+
+(use-package paren
+  :straight (:type built-in)
+  :config
+  ;; 괄호 강조
+  (show-paren-mode 1))
+
+(use-package simple
+  :straight (:type built-in)
+  :config
+  (delete-selection-mode 1)
+  (column-number-mode 1))
+
+(use-package so-long
+  :disabled
+  :straight (:type built-in)
+  :config
+  (global-so-long-mode 1))
+
+(use-package xref
+  :straight (:type built-in))
+
+(use-package project
+  :straight (:type built-in))
+
+(use-package ansi-color
+  :straight (:type built-in)
+  :config
+  (defun my/ansi-colorize-buffer ()
+    "현재 버퍼에 ANSI 색상 표시"
+    (interactive)
+    (ansi-color-apply-on-region (point-min) (point-max))))
 #+end_src
 
 ** Base Packages
@@ -227,20 +266,6 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (yas-global-mode 1))
 ;; 선택 영역 늘리고 줄이는 유틸
 (use-package expand-region)
-
-(use-package xref
-  :straight (:type built-in))
-
-(use-package project
-  :straight (:type built-in))
-
-(use-package ansi-color
-  :straight (:type built-in)
-  :config
-  (defun my/ansi-colorize-buffer ()
-    "현재 버퍼에 ANSI 색상 표시"
-    (interactive)
-    (ansi-color-apply-on-region (point-min) (point-max))))
 
 (use-package reveal-in-osx-finder
   :if (eq system-type 'drawin))
@@ -355,14 +380,25 @@ pre.src {
        (plantuml . t)))
     ;; org-mode 내에서 *bold* 등의 강조 문법 인식 경계 설정
     (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
-    (custom-set-variables `(org-emphasis-alist ',org-emphasis-alist))
 
     ;; 테마 변경 시 적용
     (add-hook 'enable-theme-functions
               (lambda (theme) (my/update-org-html-theme)))
     (advice-add 'disable-theme
                 :after (lambda (&rest _) (my/update-org-html-theme))))
-  :hook (org-mode . my/org-mode-after-setup))
+  :hook (org-mode . my/org-mode-after-setup)
+  :custom
+  (org-emphasis-alist org-emphasis-alist)
+  :custom-face
+  (org-document-title ((t (:height 1.0))))
+  (org-level-1 ((t (:height 1.0))))
+  (org-level-2 ((t (:height 1.0))))
+  (org-level-3 ((t (:height 1.0))))
+  (org-level-4 ((t (:height 1.0))))
+  (org-level-5 ((t (:height 1.0))))
+  (org-level-6 ((t (:height 1.0))))
+  (org-level-7 ((t (:height 1.0))))
+  (org-level-8 ((t (:height 1.0)))))
 
 (use-package epa-file
   :after (org)
@@ -429,11 +465,9 @@ pre.src {
   (org-journal-file-type 'weekly)
   (org-journal-file-header "#+TITLE: %Y.%m Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
   (org-journal-enable-agenda-integration t)
-  :config
-  ;; 캘린더 설정
-  (custom-set-faces
-   '(calendar-today ((t (:background "#CC9393" :underline t))))
-   '(org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic))))))
+  :custom-face
+  (calendar-today ((t (:background "#CC9393" :underline t))))
+  (org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic)))))
 #+end_src
 
 ** Olivetti
@@ -519,13 +553,12 @@ pre.src {
   (imenu-list-size 0.2)
   (imenu-list-focus-after-activation t)
   (imenu-list-auto-resize t)
-  :config
-  (custom-set-faces
-   '(imenu-list-entry-face-0 ((t (:inherit font-lock-function-name-face))))
-   '(imenu-list-entry-face-1 ((t (:inherit font-lock-variable-name-face))))
-   '(imenu-list-entry-face-2 ((t (:inherit font-lock-type-face))))
-   '(imenu-list-entry-face-3 ((t (:inherit font-lock-constant-face))))
-   '(imenu-list-entry-subalist-face-0 ((t (:inherit font-lock-keyword-face :weight bold))))))
+  :custom-face
+  (imenu-list-entry-face-0 ((t (:inherit font-lock-function-name-face))))
+  (imenu-list-entry-face-1 ((t (:inherit font-lock-variable-name-face))))
+  (imenu-list-entry-face-2 ((t (:inherit font-lock-type-face))))
+  (imenu-list-entry-face-3 ((t (:inherit font-lock-constant-face))))
+  (imenu-list-entry-subalist-face-0 ((t (:inherit font-lock-keyword-face :weight bold)))))
 #+end_src
 
 ** Completion
