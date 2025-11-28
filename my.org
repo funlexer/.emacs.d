@@ -228,6 +228,16 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
     "현재 버퍼에 ANSI 색상 표시"
     (interactive)
     (ansi-color-apply-on-region (point-min) (point-max))))
+
+(use-package ibuffer
+  :straight (:type built-in)
+  :init
+  (defalias 'list-buffers 'ibuffer)
+  :hook
+  ((ibuffer-mode . ibuffer-auto-mode))
+  :config
+  (setq ibuffer-expert t
+        ibuffer-default-sorting-mode 'major-mode))
 #+end_src
 
 ** Base Packages
@@ -292,6 +302,237 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo")))
   :config
   (global-undo-tree-mode 1))
+#+end_src
+
+** Olivetti
+
+#+begin_src emacs-lisp
+(use-package olivetti
+  :init
+  (setq-default olivetti-body-width 82)
+  :hook
+  ((olivetti-mode-on . my/disable-line-numbers-mode)
+   (olivetti-mode-off . my/enable-line-numbers-mode))
+  :config
+  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
+#+end_src
+
+** Evil
+
+#+begin_src emacs-lisp
+(use-package evil
+  :init
+  (setq evil-want-integration t
+        evil-want-keybinding nil
+        evil-undo-system 'undo-tree)
+  :config
+  (evil-mode 1)
+
+  ;; evil-collection mu4e 1.10 버전 호환성 이슈
+  (defun mu4e--main-action-str (str &optional func-or-shortcut))
+  (defun evil-collection-mu3e-update-main-view@override())
+
+  (advice-add 'evil-collection-mu3e-update-main-view
+              :override #'evil-collection-mu4e-update-main-view@override)
+
+  (evil-ex-define-cmd "q" 'kill-this-buffer)
+  (evil-ex-define-cmd "quit" 'evil-quit))
+
+(use-package evil-collection
+  :after evil
+  :config
+  (defun mu4e--main-action-str (str &optional func-or-shortcut))
+  (defun evil-collection-mu3e-update-main-view@override())
+
+  (advice-add 'evil-collection-mu3e-update-main-view
+              :override #'evil-collection-mu4e-update-main-view@override)
+  (evil-collection-init))
+
+(use-package evil-org
+  :after (evil org)
+  :hook
+  ((org-mode . evil-org-mode))
+  :config
+  (evil-org-set-key-theme '(navigation insert textobjects additional calendar))
+  ;; shift+hjkl로 날짜/우선순위/TODO 조절
+  (evil-define-key 'normal org-mode-map
+    (kbd "H") 'org-shiftleft    ;; shift+h
+    (kbd "L") 'org-shiftright   ;; shift+l
+    (kbd "K") 'org-shiftup      ;; shift+k
+    (kbd "J") 'org-shiftdown))  ;; shift+j
+
+(use-package evil-org-agenda
+  :after evil-org
+  :straight (:type built-in)
+  :config (evil-org-agenda-set-keys))
+#+end_src
+
+** IMenu
+
+#+begin_src emacs-lisp
+(use-package imemu
+  :straight (:type built-in))
+
+(use-package imenu-list
+  :custom
+  (imenu-list-position 'right)
+  (imenu-list-size 0.2)
+  (imenu-list-focus-after-activation t)
+  (imenu-list-auto-resize t)
+  :custom-face
+  (imenu-list-entry-face-0 ((t (:inherit font-lock-function-name-face))))
+  (imenu-list-entry-face-1 ((t (:inherit font-lock-variable-name-face))))
+  (imenu-list-entry-face-2 ((t (:inherit font-lock-type-face))))
+  (imenu-list-entry-face-3 ((t (:inherit font-lock-constant-face))))
+  (imenu-list-entry-subalist-face-0 ((t (:inherit font-lock-keyword-face :weight bold)))))
+#+end_src
+
+** Completion
+
+#+begin_src emacs-lisp
+(use-package savehist
+  :config
+  (savehist-mode 1))
+
+(use-package corfu
+  :custom
+  (corfu-cycle t)
+  (corfu-auto t)
+  (corfu-auto-prefix 2)
+  (corfu-auto-delay 0)
+  (corfu-popupinfo-delay '(0.5 . 0.2))
+
+  :config
+  (global-corfu-mode)
+  (corfu-popupinfo-mode 1))
+
+(use-package corfu-terminal
+  :unless (display-graphic-p)
+  :after (corfu)
+  :straight ( :type git
+              :host nil
+              :repo "https://codeberg.org/akib/emacs-corfu-terminal.git")
+  :config
+  (corfu-terminal-mode 1))
+
+(use-package cape
+  :disabled
+  :after (corfu)
+  :init
+  (add-hook 'completion-at-point-functions #'cape-dabbrev)
+  (add-hook 'completion-at-point-functions #'cape-file)
+  (add-hook 'completion-at-point-functions #'cape-elisp-block))
+
+(use-package vertico
+  :init
+  ;; (setq vertico-count-format '("%-5s " . "%2$s")
+  ;;       vertico-resize nil)
+  :config
+  (vertico-mode 1))
+
+(use-package consult
+  :init
+  (setq register-preview-delay 0.5
+        register-preview-function #'consult-register-format)
+  :config
+  (advice-add #'register-preview
+              :override #'consult-register-window))
+
+(use-package consult-projectile
+  :after (consult projectile)
+  :config
+  (defcustom consult-projectile-key-bindings
+    '((projectile-find-file        . consult-projectile-find-file)
+      (projectile-find-dir         . consult-projectile-find-dir)
+      (projectile-switch-to-buffer . consult-projectile-switch-to-buffer)
+      (projectile-switch-project   . consult-projectile-switch-project)
+      (projectile-grep             . consult-grep)
+      (projectile-ripgrep          . consult-ripgrep)
+      (" "                         . consult-projectile)
+      ("si"                        . consult-git-grep)
+      ("Oa"                        . consult-org-agenda))
+    "Like counsel-projectile-key-bindings"
+    :type '(alist :key-type (choice (function :tag "Projectile command")
+                                    key-sequence)
+                  :value-type (function :tag "Consult-projectile command"))
+    :group 'consult-projectile)
+
+  (define-minor-mode consult-projectile-mode
+    ""
+    :group 'consult-projectile
+    :require 'consult-projectile
+    :global t
+    (cond
+     (consult-projectile-mode
+      (projectile-mode)
+      (dolist (binding consult-projectile-key-bindings)
+        (if (functionp (car binding))
+            (define-key projectile-mode-map `[remap ,(car binding)] (cdr binding))
+          (define-key projectile-command-map (car binding) (cdr binding)))))
+     (t
+      (dolist (binding consult-projectile-key-bindings)
+        (if (functionp (car binding))
+            (define-key projectile-mode-map `[remap ,(car binding)] nil)
+          (define-key projectile-command-map (car binding) nil)))
+      (projectile-mode -1))))
+  (consult-projectile-mode 1))
+
+(use-package marginalia
+  :config
+  (marginalia-mode 1))
+
+(use-package embark)
+
+(use-package embark-consult
+  :after (embark consult)
+  :hook
+  ((embark-collect-mode . consult-preview-at-point-mode)))
+
+(use-package orderless
+  :init
+  (setq completion-styles '(orderless basic)
+        completion-category-defaults nil
+        completion-category-overrides '((file (styles partial-completion)))))
+#+end_src
+
+** Projectile
+
+#+begin_src emacs-lisp
+(use-package projectile
+  :init
+  (setq projectile-globally-ignored-directories
+        '(".git" ".vscode" ".idea" ".svn" ".tox" ".cache" "vendor"))
+
+  (cond
+   ;; Windows
+   ((eq system-type 'windows-nt)
+    nil) ; projectile 기본값 사용
+
+   ;; Linux/Unix
+   ((executable-find "rg")
+    (setq projectile-generic-command
+          (let ((rg-cmd ""))
+            (dolist (dir projectile-globally-ignored-directories)
+              (setq rg-cmd (format "%s --glob '!%s'" rg-cmd dir)))
+            (concat "rg -0 --files --color=never --hidden " rg-cmd))
+          projectile-git-command projectile-generic-command))))
+#+end_src
+
+** Treemacs
+
+#+begin_src emacs-lisp
+(use-package treemacs
+  :init
+  ;; https://github.com/Alexander-Miller/treemacs#configuration
+  (setq treemacs-read-string-input 'from-minibuffer ; 이맥스 미니버퍼
+        treemacs-litter-directories '("/vendor" "/node_modules")
+        treemacs-no-png-images t))
+
+(use-package treemacs-evil
+  :after (treemacs evil))
+
+(use-package treemacs-projectile
+  :after (treemacs projectile))
 #+end_src
 
 ** Org
@@ -468,251 +709,6 @@ pre.src {
   :custom-face
   (calendar-today ((t (:background "#CC9393" :underline t))))
   (org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic)))))
-#+end_src
-
-** Olivetti
-
-#+begin_src emacs-lisp
-(use-package olivetti
-  :init
-  (setq-default olivetti-body-width 82)
-  :hook
-  ((olivetti-mode-on . my/disable-line-numbers-mode)
-   (olivetti-mode-off . my/enable-line-numbers-mode))
-  :config
-  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
-#+end_src
-
-** Evil
-
-#+begin_src emacs-lisp
-(use-package evil
-  :init
-  (setq evil-want-integration t
-        evil-want-keybinding nil
-        evil-undo-system 'undo-tree)
-  :config
-  (evil-mode 1)
-
-  ;; evil-collection mu4e 1.10 버전 호환성 이슈
-  (defun mu4e--main-action-str (str &optional func-or-shortcut))
-  (defun evil-collection-mu3e-update-main-view@override())
-
-  (advice-add 'evil-collection-mu3e-update-main-view
-              :override #'evil-collection-mu4e-update-main-view@override)
-
-  (evil-ex-define-cmd "q" 'kill-this-buffer)
-  (evil-ex-define-cmd "quit" 'evil-quit))
-
-(use-package evil-collection
-  :after evil
-  :config
-  (defun mu4e--main-action-str (str &optional func-or-shortcut))
-  (defun evil-collection-mu3e-update-main-view@override())
-
-  (advice-add 'evil-collection-mu3e-update-main-view
-              :override #'evil-collection-mu4e-update-main-view@override)
-  (evil-collection-init))
-
-(use-package evil-org
-  :after (evil org)
-  :hook
-  ((org-mode . evil-org-mode))
-  :config
-  (evil-org-set-key-theme '(navigation insert textobjects additional calendar))
-  ;; shift+hjkl로 날짜/우선순위/TODO 조절
-  (evil-define-key 'normal org-mode-map
-    (kbd "H") 'org-shiftleft    ;; shift+h
-    (kbd "L") 'org-shiftright   ;; shift+l
-    (kbd "K") 'org-shiftup      ;; shift+k
-    (kbd "J") 'org-shiftdown))  ;; shift+j
-
-(use-package evil-org-agenda
-  :after evil-org
-  :straight (:type built-in)
-  :config (evil-org-agenda-set-keys))
-#+end_src
-
-** Ibuffer
-
-#+begin_src emacs-lisp
-(use-package ibuffer
-  :straight (:type built-in)
-  :init
-  (defalias 'list-buffers 'ibuffer)
-  :hook
-  ((ibuffer-mode . ibuffer-auto-mode))
-  :config
-  (setq ibuffer-expert t
-        ibuffer-default-sorting-mode 'major-mode))
-#+end_src
-
-** IMenu
-
-#+begin_src emacs-lisp
-(use-package imemu
-  :straight (:type built-in))
-
-(use-package imenu-list
-  :custom
-  (imenu-list-position 'right)
-  (imenu-list-size 0.2)
-  (imenu-list-focus-after-activation t)
-  (imenu-list-auto-resize t)
-  :custom-face
-  (imenu-list-entry-face-0 ((t (:inherit font-lock-function-name-face))))
-  (imenu-list-entry-face-1 ((t (:inherit font-lock-variable-name-face))))
-  (imenu-list-entry-face-2 ((t (:inherit font-lock-type-face))))
-  (imenu-list-entry-face-3 ((t (:inherit font-lock-constant-face))))
-  (imenu-list-entry-subalist-face-0 ((t (:inherit font-lock-keyword-face :weight bold)))))
-#+end_src
-
-** Completion
-
-#+begin_src emacs-lisp
-(use-package savehist
-  :config
-  (savehist-mode 1))
-
-(use-package corfu
-  :custom
-  (corfu-cycle t)
-  (corfu-auto t)
-  (corfu-auto-prefix 2)
-  (corfu-auto-delay 0)
-  (corfu-popupinfo-delay '(0.5 . 0.2))
-
-  :config
-  (global-corfu-mode)
-  (corfu-popupinfo-mode 1))
-
-(use-package corfu-terminal
-  :unless (display-graphic-p)
-  :after (corfu)
-  :straight ( :type git
-              :host nil
-              :repo "https://codeberg.org/akib/emacs-corfu-terminal.git")
-  :config
-  (corfu-terminal-mode 1))
-
-(use-package cape
-  :disabled
-  :after (corfu)
-  :init
-  (add-hook 'completion-at-point-functions #'cape-dabbrev)
-  (add-hook 'completion-at-point-functions #'cape-file)
-  (add-hook 'completion-at-point-functions #'cape-elisp-block))
-
-(use-package vertico
-  :init
-  ;; (setq vertico-count-format '("%-5s " . "%2$s")
-  ;;       vertico-resize nil)
-  :config
-  (vertico-mode 1))
-
-(use-package consult
-  :init
-  (setq register-preview-delay 0.5
-        register-preview-function #'consult-register-format)
-  :config
-  (advice-add #'register-preview
-              :override #'consult-register-window))
-
-(use-package consult-projectile
-  :after (consult projectile)
-  :config
-  (defcustom consult-projectile-key-bindings
-    '((projectile-find-file        . consult-projectile-find-file)
-      (projectile-find-dir         . consult-projectile-find-dir)
-      (projectile-switch-to-buffer . consult-projectile-switch-to-buffer)
-      (projectile-switch-project   . consult-projectile-switch-project)
-      (projectile-grep             . consult-grep)
-      (projectile-ripgrep          . consult-ripgrep)
-      (" "                         . consult-projectile)
-      ("si"                        . consult-git-grep)
-      ("Oa"                        . consult-org-agenda))
-    "Like counsel-projectile-key-bindings"
-    :type '(alist :key-type (choice (function :tag "Projectile command")
-                                    key-sequence)
-                  :value-type (function :tag "Consult-projectile command"))
-    :group 'consult-projectile)
-
-  (define-minor-mode consult-projectile-mode
-    ""
-    :group 'consult-projectile
-    :require 'consult-projectile
-    :global t
-    (cond
-     (consult-projectile-mode
-      (projectile-mode)
-      (dolist (binding consult-projectile-key-bindings)
-        (if (functionp (car binding))
-            (define-key projectile-mode-map `[remap ,(car binding)] (cdr binding))
-          (define-key projectile-command-map (car binding) (cdr binding)))))
-     (t
-      (dolist (binding consult-projectile-key-bindings)
-        (if (functionp (car binding))
-            (define-key projectile-mode-map `[remap ,(car binding)] nil)
-          (define-key projectile-command-map (car binding) nil)))
-      (projectile-mode -1))))
-  (consult-projectile-mode 1))
-
-(use-package marginalia
-  :config
-  (marginalia-mode 1))
-
-(use-package embark)
-
-(use-package embark-consult
-  :after (embark consult)
-  :hook
-  ((embark-collect-mode . consult-preview-at-point-mode)))
-
-(use-package orderless
-  :init
-  (setq completion-styles '(orderless basic)
-        completion-category-defaults nil
-        completion-category-overrides '((file (styles partial-completion)))))
-#+end_src
-
-** Projectile
-
-#+begin_src emacs-lisp
-(use-package projectile
-  :init
-  (setq projectile-globally-ignored-directories
-        '(".git" ".vscode" ".idea" ".svn" ".tox" ".cache" "vendor"))
-
-  (cond
-   ;; Windows
-   ((eq system-type 'windows-nt)
-    nil) ; projectile 기본값 사용
-
-   ;; Linux/Unix
-   ((executable-find "rg")
-    (setq projectile-generic-command
-          (let ((rg-cmd ""))
-            (dolist (dir projectile-globally-ignored-directories)
-              (setq rg-cmd (format "%s --glob '!%s'" rg-cmd dir)))
-            (concat "rg -0 --files --color=never --hidden " rg-cmd))
-          projectile-git-command projectile-generic-command))))
-#+end_src
-
-** Treemacs
-
-#+begin_src emacs-lisp
-(use-package treemacs
-  :init
-  ;; https://github.com/Alexander-Miller/treemacs#configuration
-  (setq treemacs-read-string-input 'from-minibuffer ; 이맥스 미니버퍼
-        treemacs-litter-directories '("/vendor" "/node_modules")
-        treemacs-no-png-images t))
-
-(use-package treemacs-evil
-  :after (treemacs evil))
-
-(use-package treemacs-projectile
-  :after (treemacs projectile))
 #+end_src
 
 ** Translate
