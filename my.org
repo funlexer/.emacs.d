@@ -238,6 +238,13 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :config
   (setq ibuffer-expert t
         ibuffer-default-sorting-mode 'major-mode))
+
+(use-package grep
+  :straight (:type built-in)
+  :config
+  (setq grep-find-use-xargs 'gnu ;; use xargs
+        grep-find-command ;; POSIX
+        "find . -type f -print0 | xargs -0 grep --color=auto -nH -e "))
 #+end_src
 
 ** Base Packages
