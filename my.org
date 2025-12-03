@@ -370,7 +370,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 ** IMenu
 
 #+begin_src emacs-lisp
-(use-package imemu
+(use-package imenu
   :straight (:type built-in))
 
 (use-package imenu-list
