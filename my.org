@@ -189,6 +189,11 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (tool-bar-mode -1)
   (scroll-bar-mode -1))
 
+(use-package dired
+  :straight (:type built-in)
+  :custom
+  (dired-listing-switches "-alh --group-directories-first"))
+
 (use-package recentf
   :straight (:type built-in)
   :custom
