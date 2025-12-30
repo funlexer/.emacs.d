@@ -584,6 +584,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
         org-html-doctype "html5"
         org-html-html5-fancy t
         org-html-validation-link nil
+        org-html-head-extra "<style type='text/css'>#content{max-width:120em;margin:auto;}</style>"
         org-html-head-include-default-style t)
 
   :config
