@@ -707,13 +707,15 @@ pre.src {
   :after org
   :custom
   (org-journal-dir "~/org/journal/")
-  (org-journal-search-result-date-format "%Y-%m-%d, %A")
+  (org-journal-file-format "%Y/%Y%m.org")
+  (org-journal-file-type 'monthly)
+  (org-journal-file-header "#+TITLE: %Y %B Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
   (org-journal-date-format "%Y-%m-%d, %A")
   (org-journal-time-format "<%Y-%m-%d %a %H:%M>")
-  (org-journal-file-format "%Y/%m/%Y%m%d.org")
-  (org-journal-file-type 'weekly)
-  (org-journal-file-header "#+TITLE: %Y.%m Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
-  (org-journal-enable-agenda-integration t)
+  (org-journal-enable-agenda-integration nil) ;; 직접 추가로 변경
+  :config
+  (add-to-list 'org-agenda-files
+               (expand-file-name (format-time-string "%Y") org-journal-dir))
   :custom-face
   (calendar-today ((t (:background "#CC9393" :underline t))))
   (org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic)))))
