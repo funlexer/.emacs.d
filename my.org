@@ -432,8 +432,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package vertico
   :init
-  ;; (setq vertico-count-format '("%-5s " . "%2$s")
-  ;;       vertico-resize nil)
+  (setq vertico-resize nil)
   :config
   (vertico-mode 1))
 
