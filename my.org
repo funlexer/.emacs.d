@@ -329,6 +329,181 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
 #+end_src
 
+** Org
+
+#+begin_src emacs-lisp
+(use-package org
+  :init
+  (setq org-startup-folded t
+        org-adapt-indentation nil
+        org-src-fontify-natively t
+        org-src-tab-acts-natively t
+        org-confirm-babel-evaluate nil
+        org-edit-src-content-indentation 0
+        org-imenu-depth 3
+        org-log-done 'time
+        org-babel-default-header-args:sh `((:noweb . "yes") (:results . "output"))
+        org-babel-go-command "GO111MODULE=off go"
+        org-agenda-window-setup 'current-window
+        org-agenda-start-with-log-mode '(closed)
+        org-agenda-tags-column 0
+        org-todo-keywords '((sequence "TODO(t)" "INPROGRESS(i)" "PAUSED(p)" "|"
+                                      "DONE(d)" "CANCELED(c)"))
+        org-agenda-files '("~/org/inbox.org"
+                           "~/org/gtd.org"
+                           "~/org/tickler.org")
+        org-refile-targets '(("~/org/gtd.org" :maxlevel . 1)
+                             ("~/org/someday.org" :level . 1)
+                             ("~/org/tickler.org" :maxlevel . 2))
+        org-capture-templates '(("t" "TODO [inbox]" entry
+                                 (file+headline "~/org/inbox.org" "TODOs")
+                                 "* TODO %i%?")
+                                ("T" "Tickler" entry
+                                 (file "~/org/tickler.org")
+                                 "* %i%? \n %U"))
+        org-tag-alist '(("crypt" . ?c) ("@home" . ?h) ("@office" . ?o))
+        org-babel-default-header-args '((:eval . "never-export"))
+        org-html-postamble nil
+        org-html-doctype "html5"
+        org-html-html5-fancy t
+        org-html-validation-link nil
+        org-html-head-extra "<style type='text/css'>#content{max-width:120em;margin:auto;}</style>"
+        org-html-head-include-default-style t)
+
+  :config
+  (defun my/get-theme-colors-for-org-html ()
+    (let* ((bg-color (face-background 'default))
+           (fg-color (face-foreground 'default))
+           (comment-color (face-foreground 'font-lock-comment-face))
+           (keyword-color (face-foreground 'font-lock-keyword-face))
+           (string-color (face-foreground 'font-lock-string-face)))
+      (format "<style>
+pre.src {
+  background-color: %s !important;
+  color: %s !important;
+  border: 1px solid %s;
+  padding: 1rem;
+  border-radius: 6px;
+}
+.org-comment { color: %s !important; }
+.org-keyword { color: %s !important; }
+.org-string { color: %s !important; }
+</style>"
+              bg-color fg-color comment-color
+              comment-color keyword-color string-color)))
+
+  (defun my/update-org-html-theme ()
+    (setq org-html-head (my/get-theme-colors-for-org-html)))
+
+  (defun my/org-mode-after-setup ()
+    "Org Mode가 완전하게 로딩된 이후에 실행할 설정"
+    (require 'org-tempo)
+    (setq org-structure-template-alist
+          (append org-structure-template-alist
+                  '(("sh" . "src sh")
+                    ("u"  . "src plantuml :file ?.png :cmdline -charset UTF-8")
+                    ("t"  . "src typescript :cmdline -t es6"))))
+
+    (org-babel-do-load-languages
+     'org-babel-load-languages
+     '((python . t)
+       (ditaa . t)
+       (java . t)
+       (go . t)
+       (js . t)
+       (C . t)
+       (shell . t)
+       (plantuml . t)))
+    ;; org-mode 내에서 *bold* 등의 강조 문법 인식 경계 설정
+    (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
+
+    ;; 테마 변경 시 적용
+    (add-hook 'enable-theme-functions
+              (lambda (theme) (my/update-org-html-theme)))
+    (advice-add 'disable-theme
+                :after (lambda (&rest _) (my/update-org-html-theme))))
+  :hook (org-mode . my/org-mode-after-setup)
+  :custom
+  (org-emphasis-alist org-emphasis-alist)
+  :custom-face
+  (org-document-title ((t (:height 1.0))))
+  (org-level-1 ((t (:height 1.0))))
+  (org-level-2 ((t (:height 1.0))))
+  (org-level-3 ((t (:height 1.0))))
+  (org-level-4 ((t (:height 1.0))))
+  (org-level-5 ((t (:height 1.0))))
+  (org-level-6 ((t (:height 1.0))))
+  (org-level-7 ((t (:height 1.0))))
+  (org-level-8 ((t (:height 1.0)))))
+
+(use-package epa-file
+  :after (org)
+  :straight (:type built-in)
+  :autoload epa-file-enable)
+
+(use-package org-crypt
+  :after (org)
+  :straight (:type built-in)
+  :config
+  (setq epa-file-select-keys nil
+        epg-pinentry-mode 'loopback
+        auth-sources '((:source "~/.authinfo.gpg"))
+        org-crypt-key nil
+        org-tags-exclude-from-inheritance (quote ("crypt")))
+  ;; 암호 항목에 대한 tangle 내보내기 문제 해결
+  (org-crypt-use-before-save-magic)
+  (defun my/reveal-and-move-back ()
+    (org-reveal)
+    (goto-char my/old-point))
+  (defun my/org-reveal-after-save-on ()
+    (setq my/old-point (point))
+    (add-hook 'after-save-hook 'my/reveal-and-move-back))
+  (defun my/org-reveal-after-save-off ()
+    (remove-hook 'after-save-hook 'my/reveal-and-move-back))
+  (add-hook 'org-babel-pre-tangle-hook 'my/org-reveal-after-save-on)
+  (add-hook 'org-babel-post-tangle-hook 'my/org-reveal-after-save-off))
+
+(use-package ox-gfm
+  :after (org)
+  :config
+  (defun my/org-gfm-format-toc (headline info)
+    "Return an appropriate table of contents entry for HEADLINE."
+    (let* ((title (org-export-data (org-element-property :title headline) info))
+           (level (org-export-get-relative-level headline info))
+           (indent (concat (make-string (* (1- level) 2) ?\s)))
+           ;; GitHub style
+           (anchor (or (org-element-property :CUSTOM_ID headline)
+                       (replace-regexp-in-string
+                        "[^a-z0-9-]" ""
+                        (replace-regexp-in-string
+                         " " "-"
+                         (downcase title))))))
+      (concat indent "- [" title "](#" anchor ")")))
+
+  (advice-add 'org-gfm-format-toc
+              :override #'my/org-gfm-format-toc))
+
+(use-package org-tree-slide
+  :after (org))
+
+(use-package org-journal
+  :after org
+  :custom
+  (org-journal-dir "~/org/journal/")
+  (org-journal-file-format "%Y/%Y%m.org")
+  (org-journal-file-type 'monthly)
+  (org-journal-file-header "#+TITLE: %Y %B Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
+  (org-journal-date-format "%Y-%m-%d, %A")
+  (org-journal-time-format "<%Y-%m-%d %a %H:%M>")
+  (org-journal-enable-agenda-integration nil) ;; 직접 추가로 변경
+  :config
+  (add-to-list 'org-agenda-files
+               (expand-file-name (format-time-string "%Y") org-journal-dir))
+  :custom-face
+  (calendar-today ((t (:background "#CC9393" :underline t))))
+  (org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic)))))
+#+end_src
+
 ** Evil
 
 #+begin_src emacs-lisp
@@ -374,9 +549,13 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
     (kbd "J") 'org-shiftdown))  ;; shift+j
 
 (use-package evil-org-agenda
-  :after evil-org
+  :after (evil-org org-agenda)
   :straight (:type built-in)
-  :config (evil-org-agenda-set-keys))
+  :config
+  (evil-org-agenda-set-keys)
+  (evil-define-key 'motion org-agenda-mode-map
+    (kbd "J") 'org-agenda-later
+    (kbd "K") 'org-agenda-earlier))
 #+end_src
 
 ** IMenu
@@ -544,186 +723,6 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 
 (use-package treemacs-projectile
   :after (treemacs projectile))
-#+end_src
-
-** Org
-
-#+begin_src emacs-lisp
-(use-package org
-  :init
-  (setq org-startup-folded t
-        org-adapt-indentation nil
-        org-src-fontify-natively t
-        org-src-tab-acts-natively t
-        org-confirm-babel-evaluate nil
-        org-edit-src-content-indentation 0
-        org-imenu-depth 3
-        org-log-done 'time
-        org-babel-default-header-args:sh `((:noweb . "yes") (:results . "output"))
-        org-babel-go-command "GO111MODULE=off go"
-        org-agenda-window-setup 'current-window
-        org-agenda-start-with-log-mode '(closed)
-        org-agenda-tags-column 0
-        org-todo-keywords '((sequence "TODO(t)" "INPROGRESS(i)" "PAUSED(p)" "|"
-                                      "DONE(d)" "CANCELED(c)"))
-        org-agenda-files '("~/org/inbox.org"
-                           "~/org/gtd.org"
-                           "~/org/tickler.org")
-        org-refile-targets '(("~/org/gtd.org" :maxlevel . 1)
-                             ("~/org/someday.org" :level . 1)
-                             ("~/org/tickler.org" :maxlevel . 2))
-        org-capture-templates '(("t" "TODO [inbox]" entry
-                                 (file+headline "~/org/inbox.org" "TODOs")
-                                 "* TODO %i%?")
-                                ("T" "Tickler" entry
-                                 (file "~/org/tickler.org")
-                                 "* %i%? \n %U"))
-        org-tag-alist '(("crypt" . ?c) ("@home" . ?h) ("@office" . ?o))
-        org-babel-default-header-args '((:eval . "never-export"))
-        org-html-postamble nil
-        org-html-doctype "html5"
-        org-html-html5-fancy t
-        org-html-validation-link nil
-        org-html-head-extra "<style type='text/css'>#content{max-width:120em;margin:auto;}</style>"
-        org-html-head-include-default-style t)
-
-  :config
-  (defun my/get-theme-colors-for-org-html ()
-    (let* ((bg-color (face-background 'default))
-           (fg-color (face-foreground 'default))
-           (comment-color (face-foreground 'font-lock-comment-face))
-           (keyword-color (face-foreground 'font-lock-keyword-face))
-           (string-color (face-foreground 'font-lock-string-face)))
-      (format "<style>
-pre.src {
-  background-color: %s !important;
-  color: %s !important;
-  border: 1px solid %s;
-  padding: 1rem;
-  border-radius: 6px;
-}
-.org-comment { color: %s !important; }
-.org-keyword { color: %s !important; }
-.org-string { color: %s !important; }
-</style>"
-              bg-color fg-color comment-color
-              comment-color keyword-color string-color)))
-
-  (defun my/update-org-html-theme ()
-    (setq org-html-head (my/get-theme-colors-for-org-html)))
-
-  (defun my/org-mode-after-setup ()
-    "Org Mode가 완전하게 로딩된 이후에 실행할 설정"
-    (require 'org-tempo)
-    (setq org-structure-template-alist
-          (append org-structure-template-alist
-                  '(("sh" . "src sh")
-                    ("u"  . "src plantuml :file ?.png :cmdline -charset UTF-8")
-                    ("t"  . "src typescript :cmdline -t es6"))))
-
-    (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((python . t)
-       (ditaa . t)
-       (java . t)
-       (go . t)
-       (js . t)
-       (C . t)
-       (shell . t)
-       (plantuml . t)))
-    ;; org-mode 내에서 *bold* 등의 강조 문법 인식 경계 설정
-    (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
-
-    ;; 테마 변경 시 적용
-    (add-hook 'enable-theme-functions
-              (lambda (theme) (my/update-org-html-theme)))
-    (advice-add 'disable-theme
-                :after (lambda (&rest _) (my/update-org-html-theme))))
-  :hook (org-mode . my/org-mode-after-setup)
-  :custom
-  (org-emphasis-alist org-emphasis-alist)
-  :custom-face
-  (org-document-title ((t (:height 1.0))))
-  (org-level-1 ((t (:height 1.0))))
-  (org-level-2 ((t (:height 1.0))))
-  (org-level-3 ((t (:height 1.0))))
-  (org-level-4 ((t (:height 1.0))))
-  (org-level-5 ((t (:height 1.0))))
-  (org-level-6 ((t (:height 1.0))))
-  (org-level-7 ((t (:height 1.0))))
-  (org-level-8 ((t (:height 1.0)))))
-
-(use-package epa-file
-  :after (org)
-  :straight (:type built-in)
-  :autoload epa-file-enable)
-
-(use-package org-crypt
-  :after (org)
-  :straight (:type built-in)
-  :config
-  (setq epa-file-select-keys nil
-        epg-pinentry-mode 'loopback
-        auth-sources '((:source "~/.authinfo.gpg"))
-        org-crypt-key nil
-        org-tags-exclude-from-inheritance (quote ("crypt")))
-  ;; 암호 항목에 대한 tangle 내보내기 문제 해결
-  (org-crypt-use-before-save-magic)
-  (defun my/reveal-and-move-back ()
-    (org-reveal)
-    (goto-char my/old-point))
-  (defun my/org-reveal-after-save-on ()
-    (setq my/old-point (point))
-    (add-hook 'after-save-hook 'my/reveal-and-move-back))
-  (defun my/org-reveal-after-save-off ()
-    (remove-hook 'after-save-hook 'my/reveal-and-move-back))
-  (add-hook 'org-babel-pre-tangle-hook 'my/org-reveal-after-save-on)
-  (add-hook 'org-babel-post-tangle-hook 'my/org-reveal-after-save-off))
-
-(use-package ox-gfm
-  :after (org)
-  :config
-  (defun my/org-gfm-format-toc (headline info)
-    "Return an appropriate table of contents entry for HEADLINE."
-    (let* ((title (org-export-data (org-element-property :title headline) info))
-           (level (org-export-get-relative-level headline info))
-           (indent (concat (make-string (* (1- level) 2) ?\s)))
-           ;; GitHub style
-           (anchor (or (org-element-property :CUSTOM_ID headline)
-                       (replace-regexp-in-string
-                        "[^a-z0-9-]" ""
-                        (replace-regexp-in-string
-                         " " "-"
-                         (downcase title))))))
-      (concat indent "- [" title "](#" anchor ")")))
-
-  (advice-add 'org-gfm-format-toc
-              :override #'my/org-gfm-format-toc))
-
-(use-package org-tree-slide
-  :after (org))
-
-(use-package org-super-agenda
-  :after org-agenda
-  :config
-  (org-super-agenda-mode))
-
-(use-package org-journal
-  :after org
-  :custom
-  (org-journal-dir "~/org/journal/")
-  (org-journal-file-format "%Y/%Y%m.org")
-  (org-journal-file-type 'monthly)
-  (org-journal-file-header "#+TITLE: %Y %B Journal\n#+OPTIONS: toc:nil ^:nil \\n:t")
-  (org-journal-date-format "%Y-%m-%d, %A")
-  (org-journal-time-format "<%Y-%m-%d %a %H:%M>")
-  (org-journal-enable-agenda-integration nil) ;; 직접 추가로 변경
-  :config
-  (add-to-list 'org-agenda-files
-               (expand-file-name (format-time-string "%Y") org-journal-dir))
-  :custom-face
-  (calendar-today ((t (:background "#CC9393" :underline t))))
-  (org-journal-calendar-entry-face ((t (:foreground "#BDE0F3" :slant italic)))))
 #+end_src
 
 ** Translate
