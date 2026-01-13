@@ -144,6 +144,8 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
  find-file-visit-truename nil                  ;; 심볼릭 링크를 그대로 유지하도록 설정
 )
 
+;; 커스텀 설정 분리
+(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
 ;; 키 입력 명령 필터
 (setq read-extended-command-predicate #'command-completion-default-include-p)
