@@ -365,6 +365,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
                                  "* %i%? \n %U"))
         org-tag-alist '(("crypt" . ?c) ("@home" . ?h) ("@office" . ?o))
         org-babel-default-header-args '((:eval . "never-export"))
+        org-export-with-special-strings nil ; #+OPTIONS: -:nil
         org-html-postamble nil
         org-html-doctype "html5"
         org-html-html5-fancy t
