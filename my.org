@@ -719,7 +719,10 @@ pre.src {
   ;; https://github.com/Alexander-Miller/treemacs#configuration
   (setq treemacs-read-string-input 'from-minibuffer ; 이맥스 미니버퍼
         treemacs-litter-directories '("/vendor" "/node_modules")
-        treemacs-no-png-images t))
+        treemacs-width 25
+        treemacs-no-png-images t)
+  :hook
+  ((treemacs-mode . my/disable-line-numbers-mode)))
 
 (use-package treemacs-evil
   :after (treemacs evil))
