@@ -1061,6 +1061,17 @@ go install github.com/koron/iferr@master
   (setq js-indent-level tab-width))
 
 (use-package yaml-mode
+  :after (evil)
+  :config
+  (defun my/yaml-format-region (beg end)
+    "Format YAML region using yamlfmt."
+    (interactive "r")
+    (shell-command-on-region beg end "yamlfmt -" nil t))
+  (evil-define-operator my/evil-yaml-indent (beg end)
+    :move-point nil
+    (my/yaml-format-region beg end))
+  (evil-define-key 'normal yaml-mode-map
+    "=" #'my/evil-yaml-indent)
   :hook
   ((yaml-mode . highlight-indentation-mode)))
 
@@ -1090,6 +1101,18 @@ go install github.com/koron/iferr@master
 (use-package js2-mode)
 (use-package groovy-mode)
 (use-package vimrc-mode)
+#+end_src
+
+** Formatter
+
+#+begin_src emacs-lisp
+(use-package apheleia
+  :config
+  (setf (alist-get 'yamlfmt apheleia-formatters)
+        '("yamlfmt" "-"))
+  (setf (alist-get 'yaml-mode apheleia-mode-alist) 'yamlfmt)
+  :hook
+  ((yaml-mode . apheleia-mode)))
 #+end_src
 
 ** Mail
