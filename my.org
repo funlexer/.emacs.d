@@ -1056,9 +1056,7 @@ go install github.com/koron/iferr@master
 
 (use-package json-mode
   :hook
-  ((json-mode . highlight-indentation-mode))
-  :config
-  (setq js-indent-level tab-width))
+  ((json-mode . highlight-indentation-mode)))
 
 (use-package yaml-mode
   :after (evil)
@@ -1101,18 +1099,6 @@ go install github.com/koron/iferr@master
 (use-package js2-mode)
 (use-package groovy-mode)
 (use-package vimrc-mode)
-#+end_src
-
-** Formatter
-
-#+begin_src emacs-lisp
-(use-package apheleia
-  :config
-  (setf (alist-get 'yamlfmt apheleia-formatters)
-        '("yamlfmt" "-"))
-  (setf (alist-get 'yaml-mode apheleia-mode-alist) 'yamlfmt)
-  :hook
-  ((yaml-mode . apheleia-mode)))
 #+end_src
 
 ** Mail
