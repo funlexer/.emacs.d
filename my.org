@@ -16,7 +16,7 @@
 <<sec:defuns>>
 
 #+begin_src emacs-lisp
-(defun my/kill-this-buffer-unless-scratch ()
+(defun u/kill-this-buffer-unless-scratch ()
   "*scratch* 버퍼는 삭제하지 않고, 버퍼 내용을 삭제"
   (interactive)
   (if (not (string= (buffer-name) "*scratch*"))
@@ -33,7 +33,7 @@
 ;; |ABCDEFGH|
 ;; |--------|
 ;; |일바이트|
-(defun my/set-font (font size)
+(defun u/set-font (font size)
   "폰트 변경"
   (interactive
    (let ((completion-ignore-case  t))
@@ -43,7 +43,7 @@
     (set-face-font 'default (font-spec :family font :size size))))
 
 ;; https://www.blogbyben.com/2022/05/gotcha-emacs-on-mac-os-too-many-files.html
-(defun my/file-notify-rm-all-watches ()
+(defun u/file-notify-rm-all-watches ()
   "Emacs에서 알림 감시 제거. Too many open files 오류 발생 시 수행"
   (interactive)
   (maphash
@@ -51,7 +51,7 @@
      (file-notify-rm-watch key))
    file-notify-descriptors))
 
-(defun my/minibuffer-backward-kill-word (arg)
+(defun u/minibuffer-backward-kill-word (arg)
   "미니버퍼에서 경로(단어)마다 삭제"
   (interactive "p")
   (if minibuffer-completing-file-name
@@ -61,7 +61,7 @@
         (delete-minibuffer-contents))
     (delete-backward-char arg)))
 
-(defun my/cred (address ports user)
+(defun u/cred (address ports user)
   "등록된 인증서 정보를 읽는다."
   (let* ((found (nth 0 (auth-source-search :max 1
                                            :host address
@@ -76,42 +76,42 @@
                   secret)))
       nil)))
 
-(defun my/join-path (root &rest dirs)
+(defun u/join-path (root &rest dirs)
   "파일 경로 도움 함수
-Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
+Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (if (not dirs)
       root
-    (apply 'my/join-path
+    (apply 'u/join-path
            (expand-file-name (car dirs) root)
            (cdr dirs))))
 
-(defun my/read-file (path)
+(defun u/read-file (path)
   "파일 컨텐츠 읽기"
   (with-temp-buffer
     (insert-file-contents path)
     (buffer-string)))
 
-(defun my/enable-line-numbers-mode ()
+(defun u/enable-line-numbers-mode ()
   "버퍼 라인 번호 표시 활성화"
   (interactive)
   (display-line-numbers-mode 1))
 
-(defun my/disable-line-numbers-mode ()
+(defun u/disable-line-numbers-mode ()
   "버퍼 라인 번호 표시 비활성화"
   (interactive)
   (display-line-numbers-mode -1))
 
-(defun my/org-align-all-tags ()
+(defun u/org-align-all-tags ()
   "Org mode에서 버퍼의 tag 정렬"
   (interactive)
   ;; '(4)는 C-u와 동일
   (org-set-tags-command '(4)))
 
 ;; 현재의 테마를 비활성화하고 로딩하도록 설정한다.
-(defun my/disable-themes-before-load (theme &optional no-confirm no-enable)
+(defun u/disable-themes-before-load (theme &optional no-confirm no-enable)
   (mapc #'disable-theme custom-enabled-themes))
 (advice-add 'load-theme
-            :before #'my/disable-themes-before-load)
+            :before #'u/disable-themes-before-load)
 #+end_src
 
 ** Better defaults
@@ -141,8 +141,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
  split-height-threshold nil                    ;; 기본 수직 분할 기준
  frame-resize-pixelwise t                      ;; 프레임 픽셀 단위 조절
  use-short-answers t                           ;; y/n 사용
- find-file-visit-truename nil                  ;; 심볼릭 링크를 그대로 유지하도록 설정
-)
+ find-file-visit-truename nil)                 ;; 심볼릭 링크를 그대로 유지하도록 설정
 
 ;; 커스텀 설정 분리
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
@@ -231,7 +230,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package ansi-color
   :straight (:type built-in)
   :config
-  (defun my/ansi-colorize-buffer ()
+  (defun u/ansi-colorize-buffer ()
     "현재 버퍼에 ANSI 색상 표시"
     (interactive)
     (ansi-color-apply-on-region (point-min) (point-max))))
@@ -325,8 +324,8 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :init
   (setq-default olivetti-body-width 82)
   :hook
-  ((olivetti-mode-on . my/disable-line-numbers-mode)
-   (olivetti-mode-off . my/enable-line-numbers-mode))
+  ((olivetti-mode-on . u/disable-line-numbers-mode)
+   (olivetti-mode-off . u/enable-line-numbers-mode))
   :config
   (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
 #+end_src
@@ -375,7 +374,7 @@ Examples: (my/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
         org-html-head-include-default-style t)
 
   :config
-  (defun my/get-theme-colors-for-org-html ()
+  (defun u/get-theme-colors-for-org-html ()
     (let* ((bg-color (face-background 'default))
            (fg-color (face-foreground 'default))
            (comment-color (face-foreground 'font-lock-comment-face))
@@ -396,10 +395,10 @@ pre.src {
               bg-color fg-color comment-color
               comment-color keyword-color string-color)))
 
-  (defun my/update-org-html-theme ()
-    (setq org-html-head (my/get-theme-colors-for-org-html)))
+  (defun u/update-org-html-theme ()
+    (setq org-html-head (u/get-theme-colors-for-org-html)))
 
-  (defun my/org-mode-after-setup ()
+  (defun u/org-mode-after-setup ()
     "Org Mode가 완전하게 로딩된 이후에 실행할 설정"
     (require 'org-tempo)
     (setq org-structure-template-alist
@@ -423,10 +422,10 @@ pre.src {
 
     ;; 테마 변경 시 적용
     (add-hook 'enable-theme-functions
-              (lambda (theme) (my/update-org-html-theme)))
+              (lambda (theme) (u/update-org-html-theme)))
     (advice-add 'disable-theme
-                :after (lambda (&rest _) (my/update-org-html-theme))))
-  :hook (org-mode . my/org-mode-after-setup)
+                :after (lambda (&rest _) (u/update-org-html-theme))))
+  :hook (org-mode . u/org-mode-after-setup)
   :custom
   (org-emphasis-alist org-emphasis-alist)
   :custom-face
@@ -456,21 +455,21 @@ pre.src {
         org-tags-exclude-from-inheritance (quote ("crypt")))
   ;; 암호 항목에 대한 tangle 내보내기 문제 해결
   (org-crypt-use-before-save-magic)
-  (defun my/reveal-and-move-back ()
+  (defun u/reveal-and-move-back ()
     (org-reveal)
-    (goto-char my/old-point))
-  (defun my/org-reveal-after-save-on ()
-    (setq my/old-point (point))
-    (add-hook 'after-save-hook 'my/reveal-and-move-back))
-  (defun my/org-reveal-after-save-off ()
-    (remove-hook 'after-save-hook 'my/reveal-and-move-back))
-  (add-hook 'org-babel-pre-tangle-hook 'my/org-reveal-after-save-on)
-  (add-hook 'org-babel-post-tangle-hook 'my/org-reveal-after-save-off))
+    (goto-char u/old-point))
+  (defun u/org-reveal-after-save-on ()
+    (setq u/old-point (point))
+    (add-hook 'after-save-hook 'u/reveal-and-move-back))
+  (defun u/org-reveal-after-save-off ()
+    (remove-hook 'after-save-hook 'u/reveal-and-move-back))
+  (add-hook 'org-babel-pre-tangle-hook 'u/org-reveal-after-save-on)
+  (add-hook 'org-babel-post-tangle-hook 'u/org-reveal-after-save-off))
 
 (use-package ox-gfm
   :after (org)
   :config
-  (defun my/org-gfm-format-toc (headline info)
+  (defun u/org-gfm-format-toc (headline info)
     "Return an appropriate table of contents entry for HEADLINE."
     (let* ((title (org-export-data (org-element-property :title headline) info))
            (level (org-export-get-relative-level headline info))
@@ -485,7 +484,7 @@ pre.src {
       (concat indent "- [" title "](#" anchor ")")))
 
   (advice-add 'org-gfm-format-toc
-              :override #'my/org-gfm-format-toc))
+              :override #'u/org-gfm-format-toc))
 
 (use-package org-tree-slide
   :after (org))
@@ -723,7 +722,7 @@ pre.src {
         treemacs-width 25
         treemacs-no-png-images t)
   :hook
-  ((treemacs-mode . my/disable-line-numbers-mode)))
+  ((treemacs-mode . u/disable-line-numbers-mode)))
 
 (use-package treemacs-evil
   :after (treemacs evil))
@@ -755,7 +754,7 @@ pre.src {
                 elfeed-curl-extra-arguments '("--insecure")
                 elfeed-show-entry-switch 'switch-to-buffer)
   :config
-  (defun my/elfeed-toggle-flagged ()
+  (defun u/elfeed-toggle-flagged ()
     "Toggle flagged tag for current entry"
     (interactive)
     (let ((entry (elfeed-search-selected :single)))
@@ -764,12 +763,12 @@ pre.src {
         (elfeed-tag entry 'flagged))
       (elfeed-search-update-entry entry)))
 
-  (defun my/elfeed-show-flagged ()
+  (defun u/elfeed-show-flagged ()
     "Show only flagged entries"
     (interactive)
     (elfeed-search-set-filter "+flagged"))
 
-  (defun my/elfeed-export-flagged ()
+  (defun u/elfeed-export-flagged ()
     "Export flagged entries to org file with tags"
     (interactive)
     (let ((exported-count 0)
@@ -818,9 +817,9 @@ pre.src {
           (message "No new entries to export")))))
   :config
   (evil-define-key 'normal elfeed-search-mode-map
-    (kbd "f") #'my/elfeed-toggle-flagged
-    (kbd "F") #'my/elfeed-show-flagged
-    (kbd "E") #'my/elfeed-export-flagged))
+    (kbd "f") #'u/elfeed-toggle-flagged
+    (kbd "F") #'u/elfeed-show-flagged
+    (kbd "E") #'u/elfeed-export-flagged))
 
 (use-package elfeed-org
   :after (elfeed org)
@@ -850,7 +849,7 @@ pre.src {
 (use-package eshell
   :straight (:type built-in)
   :init
-  (defalias 'my/sh 'eshell))
+  (defalias 'u/sh 'eshell))
 
 (use-package vterm
   :when (memq window-system '(mac ns x pgtk))
@@ -859,13 +858,13 @@ pre.src {
   (setq vterm-always-compile-module t
         vterm-timer-delay 0.01)
   :hook
-  ((vterm-mode . my/disable-line-numbers-mode))
+  ((vterm-mode . u/disable-line-numbers-mode))
   :config
   (advice-add 'vterm
               :after (lambda (buffer)
                        (when-let ((proc (get-buffer-process buffer)))
                          (set-process-query-on-exit-flag proc nil))))
-  (defalias 'my/sh 'vterm))
+  (defalias 'u/sh 'vterm))
 
 (use-package zsh-mode
   :straight nil
@@ -892,12 +891,12 @@ pre.src {
             ("Autoload" "^\\s-*autoload\\s-+\\([A-Za-z_/][A-Za-z_0-9/:-]*\\)" 1)
             ("Aliases" "^\\s-*alias\\s-+\\([A-Za-z_/][A-Za-z_0-9/:-]*\\)" 1)))))
 
-(defun my/switch-sh (n)
+(defun u/switch-sh (n)
   "Shell 버퍼 변경"
   (let ((buffer-name (format "sh<%d>" n)))
     (cond ((get-buffer buffer-name)
            (switch-to-buffer buffer-name))
-          (t (my/sh buffer-name)
+          (t (u/sh buffer-name)
              (rename-buffer buffer-name)))))
 #+end_src
 
@@ -984,41 +983,41 @@ go install github.com/koron/iferr@master
   :hook
   ((go-mode . eglot-ensure)
    (go-mode . hs-minor-mode)
-   (go-mode . my/go-mode-setup))
+   (go-mode . u/go-mode-setup))
   :config
-  (defun my/go-compile-command ()
+  (defun u/go-compile-command ()
     (let* ((name (file-name-nondirectory (buffer-file-name)))
            (cmd (if (string-match "_test\\.go$" name) "test" "run")))
       ;; (format "go %s -v %s" cmd name)
       (format "go %s -v ." cmd)))
 
-  (defun my/go-compile ()
+  (defun u/go-compile ()
     "Go 파일에 맞는 컴파일 명령 실행"
     (interactive)
-    (setq compile-command (my/go-compile-command))
+    (setq compile-command (u/go-compile-command))
     (call-interactively 'compile))
 
-  (defun my/go-mode-setup()
+  (defun u/go-mode-setup()
     (setq tab-width 2)
     (when (eq major-mode 'go-mode)
-      (local-set-key (kbd "C-c C-c") 'my/go-compile)))
+      (local-set-key (kbd "C-c C-c") 'u/go-compile)))
 
-  (defun my/project-find-go-module (dir)
+  (defun u/project-find-go-module (dir)
     (when-let ((root (locate-dominating-file dir "go.mod")))
       (cons 'go-module root)))
 
   (cl-defmethod project-root ((project (head go-module)))
     (cdr project))
 
-  (defun my/eglot-before-save()
+  (defun u/eglot-before-save()
     (interactive)
     (when (eq major-mode 'go-mode)
       (eglot-format-buffer)
       (call-interactively 'eglot-code-action-organize-imports)))
 
   ;; 전역 hook 설정 추가
-  (add-hook 'project-find-functions #'my/project-find-go-module)
-  (add-hook 'before-save-hook #'my/eglot-before-save))
+  (add-hook 'project-find-functions #'u/project-find-go-module)
+  (add-hook 'before-save-hook #'u/eglot-before-save))
 
 (use-package go-tag
   :after (go-mode))
@@ -1061,15 +1060,15 @@ go install github.com/koron/iferr@master
 (use-package yaml-mode
   :after (evil)
   :config
-  (defun my/yaml-format-region (beg end)
+  (defun u/yaml-format-region (beg end)
     "Format YAML region using yamlfmt."
     (interactive "r")
     (shell-command-on-region beg end "yamlfmt -" nil t))
-  (evil-define-operator my/evil-yaml-indent (beg end)
+  (evil-define-operator u/evil-yaml-indent (beg end)
     :move-point nil
-    (my/yaml-format-region beg end))
+    (u/yaml-format-region beg end))
   (evil-define-key 'normal yaml-mode-map
-    "=" #'my/evil-yaml-indent)
+    "=" #'u/evil-yaml-indent)
   :hook
   ((yaml-mode . highlight-indentation-mode)))
 
@@ -1175,16 +1174,16 @@ go install github.com/koron/iferr@master
 [[https://stackoverflow.com/questions/683425/globally-override-key-binding-in-emacs][설정 파일 끝에 유지]]
 
 #+begin_src emacs-lisp
-(defvar my/key-map (make-keymap)
+(defvar u/key-map (make-keymap)
   "추가적인 keymap 설정")
 
-(define-minor-mode my/key-mode
+(define-minor-mode u/key-mode
   "전역적인 커스텀 단축키 설정 모드"
   :init-value t
-  :keymap my/key-map
+  :keymap u/key-map
   :lighter " My")
 
-(my/key-mode t)
+(u/key-mode t)
 #+end_src
 
 ** Bindings for Mode
@@ -1193,75 +1192,75 @@ go install github.com/koron/iferr@master
 (keymap-set emacs-lisp-mode-map "C-c C-c" 'eval-defun)
 (keymap-set lisp-interaction-mode-map "C-c C-c" 'eval-defun)
 
-(keymap-set minibuffer-local-map "C-l" 'my/minibuffer-backward-kill-word)
+(keymap-set minibuffer-local-map "C-l" 'u/minibuffer-backward-kill-word)
 
 (add-hook 'ielm-mode-hook
           (lambda ()
-            (keymap-set my/key-map "C-j" 'ielm-return)))
+            (keymap-set u/key-map "C-j" 'ielm-return)))
 #+end_src
 
 ** Bindings for Imenu
 
 #+begin_src emacs-lisp
-(keymap-set my/key-map "C-'" 'imenu-list-smart-toggle)
+(keymap-set u/key-map "C-'" 'imenu-list-smart-toggle)
 #+end_src
 
 ** Bindings for [[https://github.com/bbatsov/projectile][Projectile]]
 
 #+begin_src emacs-lisp
-(keymap-set my/key-map "C-c p" 'projectile-command-map)
+(keymap-set u/key-map "C-c p" 'projectile-command-map)
 #+end_src
 
 ** Bindings for Completion
 
 #+begin_src emacs-lisp
-(keymap-set my/key-map "C-s" 'consult-line)
-(keymap-set my/key-map "M-y" 'consult-yank-pop)
-(keymap-set my/key-map "C-x b" 'consult-buffer)
-;; (keymap-set my/key-map "C-c b" 'consult-bookmark) mu4e와 충돌
-(keymap-set my/key-map "C-c i" 'consult-imenu)
-(keymap-set my/key-map "C-c r" 'consult-recent-file)
-(keymap-set my/key-map "C-h M" 'consult-minor-mode-menu)
+(keymap-set u/key-map "C-s" 'consult-line)
+(keymap-set u/key-map "M-y" 'consult-yank-pop)
+(keymap-set u/key-map "C-x b" 'consult-buffer)
+;; (keymap-set u/key-map "C-c b" 'consult-bookmark) mu4e와 충돌
+(keymap-set u/key-map "C-c i" 'consult-imenu)
+(keymap-set u/key-map "C-c r" 'consult-recent-file)
+(keymap-set u/key-map "C-h M" 'consult-minor-mode-menu)
 #+end_src
 
 ** Bindings for [[https://orgmode.org][Org]]
 
 #+begin_src emacs-lisp
-(keymap-set my/key-map "C-c a" 'org-agenda)
-(keymap-set my/key-map "C-c c" 'org-capture)
-(keymap-set my/key-map "C-c n"
+(keymap-set u/key-map "C-c a" 'org-agenda)
+(keymap-set u/key-map "C-c c" 'org-capture)
+(keymap-set u/key-map "C-c n"
             (lambda () (interactive) (org-agenda nil "n")))
 
-(keymap-set my/key-map "C-c j" 'org-journal-open-current-journal-file)
-(keymap-set my/key-map "C-c J" 'org-journal-new-entry)
+(keymap-set u/key-map "C-c j" 'org-journal-open-current-journal-file)
+(keymap-set u/key-map "C-c J" 'org-journal-new-entry)
 #+end_src
 
 ** Bindings for Shell
 
 #+begin_src emacs-lisp
 (dolist (n (number-sequence 1 9))
-  (keymap-set my/key-map (concat "M-" (int-to-string n))
-              (lambda () (interactive) (my/switch-sh n))))
-(keymap-set my/key-map "M-`"
-            (lambda () (interactive) (my/switch-sh 10)))
+  (keymap-set u/key-map (concat "M-" (int-to-string n))
+              (lambda () (interactive) (u/switch-sh n))))
+(keymap-set u/key-map "M-`"
+            (lambda () (interactive) (u/switch-sh 10)))
 #+end_src
 
 ** Bindings for Base
 
 #+begin_src emacs-lisp
-(keymap-set my/key-map "C-SPC" 'toggle-input-method)
-(keymap-set my/key-map "C-c e" 'treemacs)
-(keymap-set my/key-map "C-M-f" 'toggle-frame-fullscreen)
-(keymap-set my/key-map "C-x k" 'my/kill-this-buffer-unless-scratch)
-(keymap-set my/key-map "C-c o" 'olivetti-mode)
-(keymap-set my/key-map "C-c m" 'magit-status)
-(keymap-set my/key-map "C->" 'er/expand-region)
-(keymap-set my/key-map "C-<" 'er/contract-region)
-(keymap-set my/key-map "C-c T" 'google-translate-at-point)
+(keymap-set u/key-map "C-SPC" 'toggle-input-method)
+(keymap-set u/key-map "C-c e" 'treemacs)
+(keymap-set u/key-map "C-M-f" 'toggle-frame-fullscreen)
+(keymap-set u/key-map "C-x k" 'u/kill-this-buffer-unless-scratch)
+(keymap-set u/key-map "C-c o" 'olivetti-mode)
+(keymap-set u/key-map "C-c m" 'magit-status)
+(keymap-set u/key-map "C->" 'er/expand-region)
+(keymap-set u/key-map "C-<" 'er/contract-region)
+(keymap-set u/key-map "C-c T" 'google-translate-at-point)
 
-(keymap-set my/key-map "<f5>" (lambda () (interactive) (find-file "~/org/inbox.org")))
-(keymap-set my/key-map "<f6>" (lambda () (interactive) (find-file "~/org/ref.org")))
-(keymap-set my/key-map "<f7>" 'mu4e)
-(keymap-set my/key-map "<f8>" 'elfeed-summary)
-(keymap-set my/key-map "<f9>" (lambda () (interactive) (org-agenda t "n")))
+(keymap-set u/key-map "<f5>" (lambda () (interactive) (find-file "~/org/inbox.org")))
+(keymap-set u/key-map "<f6>" (lambda () (interactive) (find-file "~/org/ref.org")))
+(keymap-set u/key-map "<f7>" 'mu4e)
+(keymap-set u/key-map "<f8>" 'elfeed-summary)
+(keymap-set u/key-map "<f9>" (lambda () (interactive) (org-agenda t "n")))
 #+end_src
