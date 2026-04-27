@@ -1093,6 +1093,14 @@ go install github.com/koron/iferr@master
   :mode
   (("Dockerfile.*\\'" . dockerfile-mode)))
 
+(use-package feature-mode
+  :preface
+  (defun u/feature-mode-disable-indent ()
+    "feature-mode에서 자동 인덴트를 비활성화"
+    (setq-local indent-line-function #'ignore))
+  :hook
+  ((feature-mode . u/feature-mode-disable-indent)))
+
 (use-package rust-mode)
 (use-package adoc-mode)
 (use-package js2-mode)
