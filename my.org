@@ -1077,7 +1077,7 @@ go install github.com/koron/iferr@master
   (defun u/yaml-format-region (beg end)
     "Format YAML region using yamlfmt."
     (interactive "r")
-    (shell-command-on-region beg end "yamlfmt -" nil t))
+    (shell-command-on-region beg end "yamlfmt -in -formatter indentless_arrays=true" nil t))
   (evil-define-operator u/evil-yaml-indent (beg end)
     :move-point nil
     (u/yaml-format-region beg end))
