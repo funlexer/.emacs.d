@@ -1097,6 +1097,7 @@ go install github.com/koron/iferr@master
   :config
   (setq k8s-indent-offset nil
         k8s-site-docs-url "https://kubernetes.io/docs/reference/generated/kubernetes-api/")
+  (add-to-list 'magic-mode-alist '("apiVersion:" . yaml-mode))
   (add-to-list 'org-src-lang-modes '("k8s" . yaml)))
 
 (use-package markdown-mode
