@@ -1120,6 +1120,7 @@ go install github.com/koron/iferr@master
 (use-package js2-mode)
 (use-package groovy-mode)
 (use-package vimrc-mode)
+(use-package prometheus-mode)
 #+end_src
 
 ** Mail
