@@ -248,9 +248,9 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package grep
   :straight (:type built-in)
   :config
-  (setq grep-find-use-xargs 'gnu ;; use xargs
-        grep-find-command ;; POSIX
-        "find . -type f -print0 | xargs -0 grep --color=auto -nH -e "))
+  (setq grep-find-use-xargs 'gnu
+        grep-find-command
+        "find . -type f -print0 | xargs -0 grep --color=auto -nsiHE -e "))
 #+end_src
 
 ** Base Packages
