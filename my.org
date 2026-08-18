@@ -1020,7 +1020,9 @@ go install github.com/koron/iferr@master
   (add-hook 'before-save-hook #'u/eglot-before-save))
 
 (use-package go-tag
-  :after (go-mode))
+  :after (go-mode)
+  :config
+  (setq go-tag-args (list "-transform" "camelcase")))
 
 (use-package ob-go
   :after (go-mode))
