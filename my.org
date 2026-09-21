@@ -781,7 +781,62 @@ pre.src {
               :after (lambda (buffer)
                        (when-let* ((proc (get-buffer-process buffer)))
                          (set-process-query-on-exit-flag proc nil))))
-  (defalias 'u/sh 'vterm))
+  (defalias 'u/sh 'vterm)
+
+  (defvar u/vterm-hangul--target nil
+    "조합 결과를 받을 vterm 버퍼.")
+  (defvar-local u/vterm-hangul--overlay nil
+    "vterm 버퍼에서 조합 중 글자를 커서 자리에 그리는 오버레이.")
+  (defun u/vterm-hangul--show (text)
+    "TARGET vterm 의 커서 자리에 조합 중 TEXT 를 보인다."
+    (with-current-buffer u/vterm-hangul--target
+      (if (= (length text) 0)
+          (when (overlayp u/vterm-hangul--overlay)
+            (delete-overlay u/vterm-hangul--overlay)
+            (setq u/vterm-hangul--overlay nil))
+        (unless (overlayp u/vterm-hangul--overlay)
+          (setq u/vterm-hangul--overlay (make-overlay (point) (point) nil t t)))
+        (move-overlay u/vterm-hangul--overlay (point) (point))
+        (overlay-put u/vterm-hangul--overlay 'after-string
+                     (concat (propertize text 'face 'underline)
+                             (propertize "\u200b" 'cursor t))))))
+
+  (defun u/vterm-hangul--follow-cursor (buffer)
+    "vterm 이 화면을 다시 그린 뒤 조합 오버레이를 새 커서 위치로 옮긴다.
+타이머로 불리므로 버퍼가 이미 죽었을 수 있다 (vterm 원본과 같은 보호)."
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (when (overlayp u/vterm-hangul--overlay)
+          (move-overlay u/vterm-hangul--overlay (point) (point))))))
+
+  (defun u/vterm-hangul--flush (final)
+    "임시 버퍼의 확정 글자를 vterm 으로 보낸다. FINAL 이면 조합 중 글자까지 보낸다."
+    (let* ((end (if (or final (not (overlayp quail-overlay)))
+                    (point-max)
+                  (overlay-start quail-overlay)))
+           (text (buffer-substring-no-properties (point-min) end)))
+      (when (> (length text) 0)
+        (with-current-buffer u/vterm-hangul--target
+          (vterm-send-string text))
+        (delete-region (point-min) end))
+      (u/vterm-hangul--show (if final "" (buffer-string)))))
+
+  (defun u/vterm-hangul--after-insert (&rest _)
+    (when u/vterm-hangul--target
+      (u/vterm-hangul--flush nil)))
+
+  (defun u/vterm-hangul--around (orig key)
+    (if (not (derived-mode-p 'vterm-mode))
+        (funcall orig key)
+      (let ((u/vterm-hangul--target (current-buffer)))
+        (with-temp-buffer
+          (unwind-protect (funcall orig key)
+            (u/vterm-hangul--flush t))))))
+
+  (advice-add 'hangul-insert-character :after #'u/vterm-hangul--after-insert)
+  (advice-add 'hangul2-input-method :around #'u/vterm-hangul--around)
+  (advice-add 'hangul3-input-method :around #'u/vterm-hangul--around)
+  (advice-add 'vterm--delayed-redraw :after #'u/vterm-hangul--follow-cursor))
 
 (use-package zsh-mode
   :straight nil
