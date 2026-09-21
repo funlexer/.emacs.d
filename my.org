@@ -20,7 +20,7 @@
   "*scratch* 버퍼는 삭제하지 않고, 버퍼 내용을 삭제"
   (interactive)
   (if (not (string= (buffer-name) "*scratch*"))
-      (kill-this-buffer)
+      (kill-current-buffer)
     (delete-region (point-min) (point-max))
     (switch-to-buffer (other-buffer))
     (bury-buffer "*scratch*")))
@@ -40,7 +40,8 @@
      (list (completing-read "Font: " (font-family-list) nil t)
            (read-number "Size: "))))
   (when (member font (font-family-list))
-    (set-face-font 'default (font-spec :family font :size size))))
+    (set-face-font 'default (font-spec :family font :size size))
+    (set-fontset-font t 'hangul (font-spec :family font :size size))))
 
 ;; https://www.blogbyben.com/2022/05/gotcha-emacs-on-mac-os-too-many-files.html
 (defun u/file-notify-rm-all-watches ()
@@ -119,7 +120,6 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 #+begin_src emacs-lisp
 (setq-default
  auto-revert-interval 1                        ;; 버퍼를 빠르게 새로고침
- warning-minimum-level :emergency              ;; 네이티브 컴파일 경고 끄기
  system-time-locale "C"                        ;; 시스템 로케일
  echo-keystrokes 0.1                           ;; 키 입력 즉시 표시
  inhibit-startup-screen t                      ;; 시작 스플래시 제거
@@ -150,11 +150,12 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (setq read-extended-command-predicate #'command-completion-default-include-p)
 
 ;; 백업 파일을 단일 디렉토리에 저장
-(let ((dir (expand-file-name "auto-save-list" user-emacs-directory)))
+(let ((dir (file-name-as-directory
+            (expand-file-name "auto-save-list" user-emacs-directory))))
   (setq backup-directory-alist `((".*" . ,dir))
         auto-save-file-name-transforms `((".*" ,dir t))))
 
-;; 경고음 끄기
+;; narrow-to-region 사용 허용
 (put 'narrow-to-region 'disabled -1)
 
 ;; 일반 메시지모드에서도 org 테이블 사용
@@ -184,22 +185,24 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   :config
   (global-display-line-numbers-mode 1)
   (display-time-mode 1)
-  (dirtrack-mode 1)
-  (blink-cursor-mode -1)
-  (menu-bar-mode -1)
-  (tool-bar-mode -1)
-  (scroll-bar-mode -1))
+  (blink-cursor-mode -1))
 
 (use-package dired
   :straight (:type built-in)
   :custom
-  (dired-listing-switches "-alh --group-directories-first"))
+  (dired-listing-switches
+   (if (or (eq system-type 'gnu/linux) (executable-find "gls"))
+       "-alh --group-directories-first"
+     "-alh"))
+  :config
+  (when (and (eq system-type 'darwin) (executable-find "gls"))
+    (setq insert-directory-program "gls")))
 
 (use-package recentf
   :straight (:type built-in)
   :custom
   (recentf-max-saved-items 100)
-  (recentf-exclude '("/var/folders/*" "^/tmp/*"))
+  (recentf-exclude '("\\`/var/folders/" "\\`/tmp/"))
   :config
   (recentf-mode 1))
 
@@ -215,17 +218,12 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (delete-selection-mode 1)
   (column-number-mode 1))
 
-(use-package so-long
-  :disabled
-  :straight (:type built-in)
-  :config
-  (global-so-long-mode 1))
-
-(use-package xref
-  :straight (:type built-in))
-
 (use-package project
-  :straight (:type built-in))
+  :straight (:type built-in)
+  :custom
+  ;; VCS 루트가 아니어도 프로젝트로 인식할 표식
+  (project-vc-extra-root-markers '("go.mod" "Makefile" "package.json"))
+  (project-vc-ignores '(".git" ".vscode" ".idea" ".svn" ".tox" ".cache" "vendor")))
 
 (use-package ansi-color
   :straight (:type built-in)
@@ -248,20 +246,21 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package grep
   :straight (:type built-in)
   :config
-  (setq grep-find-use-xargs 'gnu
-        grep-find-command
-        "find . -type f -print0 | xargs -0 grep --color=auto -nsiHE -e "))
+  ;; Windows 에서는 기본값 사용
+  (when (memq system-type '(gnu/linux darwin berkeley-unix))
+    (setq grep-find-use-xargs 'gnu ;; use xargs
+          grep-find-command ;; POSIX
+          "find . -type f -print0 | xargs -0 grep --color=auto -nH -e ")))
 #+end_src
 
 ** Base Packages
 
 #+begin_src emacs-lisp
-;; Emacs Lisp 라이브러리 컴파일러
-(use-package auto-compile)
 ;; 바이너리 컴파일
 (use-package cmake-mode)
 ;; 사용가능한 키 바인딩 표시
 (use-package which-key
+  :straight (:type built-in)
   :config
   (which-key-mode 1))
 ;; Git 유틸
@@ -281,8 +280,6 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 (use-package rfc-mode)
 ;; 멀티 커서
 (use-package multiple-cursors)
-;; 괄호 편집 유틸
-(use-package paredit)
 ;; 스니펫 모음
 (use-package yasnippet-snippets
   :config
@@ -290,8 +287,8 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 ;; 선택 영역 늘리고 줄이는 유틸
 (use-package expand-region)
 
-(use-package reveal-in-osx-finder
-  :if (eq system-type 'drawin))
+(when (eq system-type 'darwin)
+  (use-package reveal-in-osx-finder))
 #+end_src
 
 ** Environment
@@ -308,13 +305,12 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
 ** Undo
 
 #+begin_src emacs-lisp
-(use-package undo-tree
+;; undo 시스템은 내장 undo-redo 를 사용하고, 시각화만 vundo 로 얹는다.
+(use-package vundo
   :custom
-  (undo-tree-visualizer-diff t)
-  (undo-tree-visualizer-timestamps t)
-  (undo-tree-history-directory-alist '(("." . "~/.emacs.d/undo")))
-  :config
-  (global-undo-tree-mode 1))
+  (vundo-glyph-alist vundo-unicode-symbols)
+  :bind
+  ("C-x u" . vundo))
 #+end_src
 
 ** Olivetti
@@ -325,15 +321,14 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   (setq-default olivetti-body-width 82)
   :hook
   ((olivetti-mode-on . u/disable-line-numbers-mode)
-   (olivetti-mode-off . u/enable-line-numbers-mode))
-  :config
-  (remove-hook 'olivetti-mode-on-hook 'visual-line-mode))
+   (olivetti-mode-off . u/enable-line-numbers-mode)))
 #+end_src
 
 ** Org
 
 #+begin_src emacs-lisp
 (use-package org
+  :straight (:type built-in)
   :init
   (setq org-startup-folded t
         org-adapt-indentation nil
@@ -398,36 +393,31 @@ pre.src {
   (defun u/update-org-html-theme ()
     (setq org-html-head (u/get-theme-colors-for-org-html)))
 
-  (defun u/org-mode-after-setup ()
-    "Org Mode가 완전하게 로딩된 이후에 실행할 설정"
-    (require 'org-tempo)
-    (setq org-structure-template-alist
-          (append org-structure-template-alist
-                  '(("sh" . "src sh")
-                    ("u"  . "src plantuml :file ?.png :cmdline -charset UTF-8")
-                    ("t"  . "src typescript :cmdline -t es6"))))
+  ;; org 가 로드된 뒤 한 번만 실행할 설정.
+  (require 'org-tempo)
+  (dolist (tpl '(("sh" . "src sh")
+                 ("u"  . "src plantuml :file ?.png :cmdline -charset UTF-8")
+                 ("t"  . "src typescript :cmdline -t es6")))
+    (add-to-list 'org-structure-template-alist tpl))
 
-    (org-babel-do-load-languages
-     'org-babel-load-languages
-     '((python . t)
-       (ditaa . t)
-       (java . t)
-       (go . t)
-       (js . t)
-       (C . t)
-       (shell . t)
-       (plantuml . t)))
-    ;; org-mode 내에서 *bold* 등의 강조 문법 인식 경계 설정
-    (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((python . t)
+     (ditaa . t)
+     (java . t)
+     (js . t)
+     (C . t)
+     (shell . t)
+     (plantuml . t)))
 
-    ;; 테마 변경 시 적용
-    (add-hook 'enable-theme-functions
-              (lambda (theme) (u/update-org-html-theme)))
-    (advice-add 'disable-theme
-                :after (lambda (&rest _) (u/update-org-html-theme))))
-  :hook (org-mode . u/org-mode-after-setup)
-  :custom
-  (org-emphasis-alist org-emphasis-alist)
+  (setcar (nthcdr 2 org-emphasis-regexp-components) " \t\n,")
+  (org-set-emph-re 'org-emphasis-regexp-components org-emphasis-regexp-components)
+
+  ;; 테마 변경 시 HTML export 색을 맞춘다
+  (add-hook 'enable-theme-functions
+            (lambda (_theme) (u/update-org-html-theme)))
+  (advice-add 'disable-theme
+              :after (lambda (&rest _) (u/update-org-html-theme)))
   :custom-face
   (org-document-title ((t (:height 1.0))))
   (org-level-1 ((t (:height 1.0))))
@@ -438,11 +428,6 @@ pre.src {
   (org-level-6 ((t (:height 1.0))))
   (org-level-7 ((t (:height 1.0))))
   (org-level-8 ((t (:height 1.0)))))
-
-(use-package epa-file
-  :after (org)
-  :straight (:type built-in)
-  :autoload epa-file-enable)
 
 (use-package org-crypt
   :after (org)
@@ -514,28 +499,16 @@ pre.src {
   :init
   (setq evil-want-integration t
         evil-want-keybinding nil
-        evil-undo-system 'undo-tree)
+        evil-undo-system 'undo-redo)
   :config
   (evil-mode 1)
 
-  ;; evil-collection mu4e 1.10 버전 호환성 이슈
-  (defun mu4e--main-action-str (str &optional func-or-shortcut))
-  (defun evil-collection-mu3e-update-main-view@override())
-
-  (advice-add 'evil-collection-mu3e-update-main-view
-              :override #'evil-collection-mu4e-update-main-view@override)
-
-  (evil-ex-define-cmd "q" 'kill-this-buffer)
+  (evil-ex-define-cmd "q" 'kill-current-buffer)
   (evil-ex-define-cmd "quit" 'evil-quit))
 
 (use-package evil-collection
   :after evil
   :config
-  (defun mu4e--main-action-str (str &optional func-or-shortcut))
-  (defun evil-collection-mu3e-update-main-view@override())
-
-  (advice-add 'evil-collection-mu3e-update-main-view
-              :override #'evil-collection-mu4e-update-main-view@override)
   (evil-collection-init))
 
 (use-package evil-org
@@ -564,9 +537,6 @@ pre.src {
 ** IMenu
 
 #+begin_src emacs-lisp
-(use-package imenu
-  :straight (:type built-in))
-
 (use-package imenu-list
   :custom
   (imenu-list-position 'right)
@@ -585,6 +555,7 @@ pre.src {
 
 #+begin_src emacs-lisp
 (use-package savehist
+  :straight (:type built-in)
   :config
   (savehist-mode 1))
 
@@ -600,22 +571,14 @@ pre.src {
   (global-corfu-mode)
   (corfu-popupinfo-mode 1))
 
-(use-package corfu-terminal
-  :unless (display-graphic-p)
-  :after (corfu)
-  :straight ( :type git
-              :host nil
-              :repo "https://codeberg.org/akib/emacs-corfu-terminal.git")
-  :config
-  (corfu-terminal-mode 1))
-
-(use-package cape
-  :disabled
-  :after (corfu)
-  :init
-  (add-hook 'completion-at-point-functions #'cape-dabbrev)
-  (add-hook 'completion-at-point-functions #'cape-file)
-  (add-hook 'completion-at-point-functions #'cape-elisp-block))
+(when (and (not (display-graphic-p)) (< emacs-major-version 31))
+  (use-package corfu-terminal
+    :after (corfu)
+    :straight ( :type git
+                :host nil
+                :repo "https://codeberg.org/akib/emacs-corfu-terminal.git")
+    :config
+    (corfu-terminal-mode 1)))
 
 (use-package vertico
   :init
@@ -636,46 +599,11 @@ pre.src {
         register-preview-function #'consult-register-format)
   :config
   (advice-add #'register-preview
-              :override #'consult-register-window))
+              :override #'consult-register-window)
 
-(use-package consult-projectile
-  :after (consult projectile)
-  :config
-  (defcustom consult-projectile-key-bindings
-    '((projectile-find-file        . consult-projectile-find-file)
-      (projectile-find-dir         . consult-projectile-find-dir)
-      (projectile-switch-to-buffer . consult-projectile-switch-to-buffer)
-      (projectile-switch-project   . consult-projectile-switch-project)
-      (projectile-grep             . consult-grep)
-      (projectile-ripgrep          . consult-ripgrep)
-      (" "                         . consult-projectile)
-      ("si"                        . consult-git-grep)
-      ("Oa"                        . consult-org-agenda))
-    "Like counsel-projectile-key-bindings"
-    :type '(alist :key-type (choice (function :tag "Projectile command")
-                                    key-sequence)
-                  :value-type (function :tag "Consult-projectile command"))
-    :group 'consult-projectile)
-
-  (define-minor-mode consult-projectile-mode
-    ""
-    :group 'consult-projectile
-    :require 'consult-projectile
-    :global t
-    (cond
-     (consult-projectile-mode
-      (projectile-mode)
-      (dolist (binding consult-projectile-key-bindings)
-        (if (functionp (car binding))
-            (define-key projectile-mode-map `[remap ,(car binding)] (cdr binding))
-          (define-key projectile-command-map (car binding) (cdr binding)))))
-     (t
-      (dolist (binding consult-projectile-key-bindings)
-        (if (functionp (car binding))
-            (define-key projectile-mode-map `[remap ,(car binding)] nil)
-          (define-key projectile-command-map (car binding) nil)))
-      (projectile-mode -1))))
-  (consult-projectile-mode 1))
+  (require 'project)
+  (keymap-set project-prefix-map "G" #'consult-git-grep)
+  (keymap-set project-prefix-map "b" #'consult-project-buffer))
 
 (use-package marginalia
   :config
@@ -688,33 +616,26 @@ pre.src {
         completion-category-overrides '((file (styles partial-completion)))))
 #+end_src
 
-** Projectile
-
-#+begin_src emacs-lisp
-(use-package projectile
-  :init
-  (setq projectile-globally-ignored-directories
-        '(".git" ".vscode" ".idea" ".svn" ".tox" ".cache" "vendor"))
-
-  (cond
-   ;; Windows
-   ((eq system-type 'windows-nt)
-    nil) ; projectile 기본값 사용
-
-   ;; Linux/Unix
-   ((executable-find "rg")
-    (setq projectile-generic-command
-          (let ((rg-cmd ""))
-            (dolist (dir projectile-globally-ignored-directories)
-              (setq rg-cmd (format "%s --glob '!%s'" rg-cmd dir)))
-            (concat "rg -0 --files --color=never --hidden " rg-cmd))
-          projectile-git-command projectile-generic-command))))
-#+end_src
-
 ** Treemacs
 
 #+begin_src emacs-lisp
 (use-package treemacs
+  :preface
+  (defun u/treemacs-dir-at-point ()
+    "treemacs 커서 위치의 디렉터리. 파일이면 그 파일이 속한 디렉터리."
+    (let ((path (and (fboundp 'treemacs--prop-at-point)
+                     (treemacs--prop-at-point :path))))
+      (cond ((not (stringp path)) default-directory)
+            ((file-directory-p path) path)
+            (t (file-name-directory path)))))
+
+  (defun u/project-rg (&optional arg)
+    "현재 위치에서의 검색"
+    (interactive "P")
+    (consult-ripgrep
+     (cond (arg (read-directory-name "Search in: "))
+           ((derived-mode-p 'treemacs-mode) (u/treemacs-dir-at-point))
+           (t nil))))
   :init
   ;; https://github.com/Alexander-Miller/treemacs#configuration
   (setq treemacs-read-string-input 'from-minibuffer ; 이맥스 미니버퍼
@@ -726,9 +647,6 @@ pre.src {
 
 (use-package treemacs-evil
   :after (treemacs evil))
-
-(use-package treemacs-projectile
-  :after (treemacs projectile))
 #+end_src
 
 ** Translate
@@ -738,10 +656,7 @@ pre.src {
   :init
   (setq google-translate-default-source-language "en"
         google-translate-default-target-language "ko"
-        google-translate-output-destination nil)
-  (defun google-translate--search-tkk ()
-    "https://github.com/atykhonov/google-translate/issues/137"
-    (list 430675 2721866130)))
+        google-translate-output-destination nil))
 #+end_src
 
 ** Elfeed
@@ -852,23 +767,24 @@ pre.src {
   (defalias 'u/sh 'eshell))
 
 (use-package vterm
-  :when (memq window-system '(mac ns x pgtk))
+  ;; 터미널 Emacs(-nw)에서도 동작하므로 Windows 만 제외한다
+  :when (not (eq system-type 'windows-nt))
   :demand t
   :init
   (setq vterm-always-compile-module t
-        vterm-timer-delay 0.01)
+        ;; 기본값 1000 은 출력이 많은 TUI 에 부족하다
+        vterm-max-scrollback 100000)
   :hook
   ((vterm-mode . u/disable-line-numbers-mode))
   :config
   (advice-add 'vterm
               :after (lambda (buffer)
-                       (when-let ((proc (get-buffer-process buffer)))
+                       (when-let* ((proc (get-buffer-process buffer)))
                          (set-process-query-on-exit-flag proc nil))))
   (defalias 'u/sh 'vterm))
 
 (use-package zsh-mode
   :straight nil
-  :after sh-script
   :commands zsh-mode
   :mode (("\\.zsh\\'"  . zsh-mode)
          ("zshrc\\'"   . zsh-mode)
@@ -904,8 +820,11 @@ pre.src {
 
 #+begin_src emacs-lisp
 (use-package eglot
+  :straight (:type built-in)
   :demand t
   :init
+  ;; LSP Debug: size -> 2000000
+  (setq eglot-events-buffer-config '(:size 0 :format full))
   (setq-default eglot-workspace-configuration
                 '((:gopls . ((staticcheck . t)
                              (matcher . "CaseSensitive")))))
@@ -977,7 +896,6 @@ go install github.com/koron/iferr@master
 
 #+begin_src emacs-lisp
 (use-package go-mode
-  :after (eglot project)
   :mode
   ("\\.go\\'" "\\.go\\.bak\\'")
   :hook
@@ -1002,30 +920,24 @@ go install github.com/koron/iferr@master
     (when (eq major-mode 'go-mode)
       (local-set-key (kbd "C-c C-c") 'u/go-compile)))
 
-  (defun u/project-find-go-module (dir)
-    (when-let ((root (locate-dominating-file dir "go.mod")))
-      (cons 'go-module root)))
-
-  (cl-defmethod project-root ((project (head go-module)))
-    (cdr project))
-
-  (defun u/eglot-before-save()
-    (interactive)
-    (when (eq major-mode 'go-mode)
+  ;; go.mod 를 프로젝트 루트로 잡는 것은 project-vc-extra-root-markers 가 맡는다.
+  (defun u/eglot-before-save ()
+    "eglot 이 관리하는 Go 버퍼만 저장 전에 포맷·import 정리한다."
+    (when (and (derived-mode-p 'go-mode)
+               (fboundp 'eglot-managed-p)
+               (eglot-managed-p))
       (eglot-format-buffer)
-      (call-interactively 'eglot-code-action-organize-imports)))
+      (call-interactively #'eglot-code-action-organize-imports)))
 
-  ;; 전역 hook 설정 추가
-  (add-hook 'project-find-functions #'u/project-find-go-module)
   (add-hook 'before-save-hook #'u/eglot-before-save))
 
 (use-package go-tag
-  :after (go-mode)
-  :config
-  (setq go-tag-args (list "-transform" "camelcase")))
+  :after (go-mode))
 
 (use-package ob-go
-  :after (go-mode))
+  :after org
+  :config
+  (add-to-list 'org-babel-load-languages '(go . t)))
 #+end_src
 
 ** Java
@@ -1043,10 +955,10 @@ go install github.com/koron/iferr@master
 (when (image-type-available-p 'svg)
   (require 'svg))
 
-;; W : 너비를 창에 맞춤 (fit width)
-;; H : 높이를 창에 맞춤 (fit height)
-;; P : 페이지 전체를 창에 맞춤 (fit page)
-;; 0 : 원래 크기로 리셋
+;; W: 너비를 창에 맞춤 (fit width)
+;; H: 높이를 창에 맞춤 (fit height)
+;; P: 페이지 전체를 창에 맞춤 (fit page)
+;; 0: 원래 크기로 리셋
 (use-package pdf-tools
   :magic
   ("%PDF" . pdf-view-mode)
@@ -1055,23 +967,23 @@ go install github.com/koron/iferr@master
   :hook
   ((pdf-view-mode . (lambda() (display-line-numbers-mode -1)))))
 
-(use-package js2-mode
-  :mode
-  (("\\.js\\'" . js2-mode))
-  :preface
-  (defun u/js-setup-indent ()
-    (setq-local tab-width 2)
-    (setq-local js-indent-level 2)
-    (setq-local js2-basic-offset 2))
+(use-package treesit
+  :straight (:type built-in)
+  :init
+  (setq treesit-font-lock-level 4
+        js-indent-level 2
+        json-ts-mode-indent-offset 2)
+  :config
+  (dolist (pair '((js-mode      . js-ts-mode)
+                  (js-json-mode . json-ts-mode)
+                  (css-mode     . css-ts-mode)))
+    (add-to-list 'major-mode-remap-alist pair))
+  (dolist (entry '(("\\.js\\'"        . js-ts-mode)
+                   ("\\.json\\'"      . json-ts-mode)
+                   ("Dockerfile.*\\'" . dockerfile-ts-mode)))
+    (add-to-list 'auto-mode-alist entry))
   :hook
-  ((js-mode . u/js-setup-indent)
-   (js2-mode . u/js-setup-indent)))
-
-(use-package json-mode
-  :mode
-  (("\\.json\\'" . json-mode))
-  :hook
-  ((json-mode . highlight-indentation-mode)))
+  ((json-ts-mode . highlight-indentation-mode)))
 
 (use-package yaml-mode
   :after (evil)
@@ -1088,27 +1000,56 @@ go install github.com/koron/iferr@master
   :hook
   ((yaml-mode . highlight-indentation-mode)))
 
-(use-package plantuml-mode
-  :config
-  (let ((jar-file "~/.emacs.d/bin/plantuml.jar"))
-    (setq plantuml-default-exec-mode 'jar
-          plantuml-jar-path jar-file
-          org-plantuml-jar-path jar-file)))
+(use-package plantuml-mode)
 
 (use-package k8s-mode
+  :preface
+  (defun u/k8s-imenu-index ()
+    "kind 와 metadata 이름으로 imenu 목록을 만든다."
+    (let ((case-fold-search nil)
+          index)
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "^\\( *\\)\\(- \\)?kind: +\\(.+?\\) *$" nil t)
+          (let* ((kind (match-string-no-properties 3))
+                 (pos (match-beginning 0))
+                 (indent (+ (length (match-string 1))
+                            (if (match-string 2) 2 0)))
+                 (bound (save-excursion
+                          (or (re-search-forward "^ *\\(?:- \\)?kind: " nil t)
+                              (point-max))))
+                 (name (save-excursion
+                         (and (re-search-forward
+                               (format "^ \\{%d\\}metadata: *$" indent) bound t)
+                              (re-search-forward
+                               (format "^ \\{%d\\}\\(?:generateName\\|name\\): +\\(.+?\\) *$"
+                                       (+ indent 2))
+                               bound t)
+                              (match-string-no-properties 1)))))
+            (when name
+              (push (cons (concat kind ": " name) pos) index)))))
+      (nreverse index)))
+
+  (defun u/k8s-imenu-setup ()
+    "k8s-mode 버퍼의 imenu 를 kind/name 목록으로 바꾼다."
+    (setq-local imenu-create-index-function #'u/k8s-imenu-index))
+
   :config
   (setq k8s-indent-offset nil
         k8s-site-docs-url "https://kubernetes.io/docs/reference/generated/kubernetes-api/")
-  (add-to-list 'magic-mode-alist '("apiVersion:" . yaml-mode))
-  (add-to-list 'org-src-lang-modes '("k8s" . yaml)))
+  (add-to-list 'magic-mode-alist '("apiVersion:" . k8s-mode))
+  (add-to-list 'org-src-lang-modes '("k8s" . yaml))
+
+  :hook
+  ((k8s-mode . u/k8s-imenu-setup)))
 
 (use-package markdown-mode
   :config
-  (setq markdown-command "multimarkdown"))
-
-(use-package dockerfile-mode
-  :mode
-  (("Dockerfile.*\\'" . dockerfile-mode)))
+  ;; 환경에 없는 실행 파일을 지정하면 미리보기가 실패한다
+  (setq markdown-command
+        (cond ((executable-find "multimarkdown") "multimarkdown")
+              ((executable-find "pandoc") "pandoc")
+              (t "markdown"))))
 
 (use-package feature-mode
   :preface
@@ -1120,7 +1061,6 @@ go install github.com/koron/iferr@master
 
 (use-package rust-mode)
 (use-package adoc-mode)
-(use-package js2-mode)
 (use-package groovy-mode)
 (use-package vimrc-mode)
 (use-package prometheus-mode)
@@ -1164,9 +1104,8 @@ go install github.com/koron/iferr@master
         mu4e-update-interval (* 5 60)
         mu4e-attachment-dir "~/Downloads/"
         mu4e-maildir-shortcuts '(("/Inbox" . ?i))
-        mu4e-headers-visible-lines 20
-        mu4e-headers-visible-columns 80
         mu4e-headers-visible-lines 10
+        mu4e-headers-visible-columns 80
         mu4e-headers-date-format "%Y-%m-%dT%H:%M"
         mu4e-headers-fields '((:human-date . 18)
                               (:flags      . 6)
@@ -1181,8 +1120,6 @@ go install github.com/koron/iferr@master
         message-citation-line-function 'message-insert-formatted-citation-line
         message-send-mail-function 'smtpmail-send-it
         message-kill-buffer-on-exit t
-        starttls-use-gnutls t
-        smtpmail-starttls-credentials '(("smtp.gmail.com" 587 nil nil))
         smtpmail-default-smtp-server "smtp.gmail.com"
         smtpmail-smtp-server "smtp.gmail.com"
         smtpmail-smtp-service 587))
@@ -1209,7 +1146,6 @@ go install github.com/koron/iferr@master
   :keymap u/key-map
   :lighter " My")
 
-(u/key-mode t)
 #+end_src
 
 ** Bindings for Mode
@@ -1220,9 +1156,17 @@ go install github.com/koron/iferr@master
 
 (keymap-set minibuffer-local-map "C-l" 'u/minibuffer-backward-kill-word)
 
+(keymap-set project-prefix-map "g" #'u/project-rg)
+
 (add-hook 'ielm-mode-hook
           (lambda ()
-            (keymap-set u/key-map "C-j" 'ielm-return)))
+            (require 'paredit)
+            (let ((map (make-sparse-keymap)))
+              (set-keymap-parent map paredit-mode-map)
+              (keymap-set map "RET" #'ielm-return)
+              (keymap-set map "C-j" #'ielm-return)
+              (setq-local minor-mode-overriding-map-alist
+                          (list (cons 'paredit-mode map))))))
 #+end_src
 
 ** Bindings for Imenu
@@ -1231,10 +1175,11 @@ go install github.com/koron/iferr@master
 (keymap-set u/key-map "C-'" 'imenu-list-smart-toggle)
 #+end_src
 
-** Bindings for [[https://github.com/bbatsov/projectile][Projectile]]
+** Bindings for Project
 
 #+begin_src emacs-lisp
-(keymap-set u/key-map "C-c p" 'projectile-command-map)
+;; project.el 의 접두 키맵. 기본 C-x p 외에 손에 익은 C-c p 도 유지한다.
+(keymap-set u/key-map "C-c p" project-prefix-map)
 #+end_src
 
 ** Bindings for Completion
