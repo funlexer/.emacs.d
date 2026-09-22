@@ -364,7 +364,10 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
         org-edit-src-content-indentation 0
         org-imenu-depth 3
         org-log-done 'time
-        org-babel-default-header-args:sh `((:noweb . "yes") (:results . "output"))
+        org-babel-default-header-args:sh '((:noweb . "yes")
+                                           (:results . "output verbatim")
+                                           (:prologue . "if [ -f ~/.shfunc ]; then . ~/.shfunc; fi"))
+        org-babel-default-header-args:js '((:session . "none"))
         org-babel-go-command "GO111MODULE=off go"
         org-agenda-window-setup 'current-window
         org-agenda-start-with-log-mode '(closed)
