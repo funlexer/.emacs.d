@@ -108,11 +108,37 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
   ;; '(4)는 C-u와 동일
   (org-set-tags-command '(4)))
 
-;; 현재의 테마를 비활성화하고 로딩하도록 설정한다.
 (defun u/disable-themes-before-load (theme &optional no-confirm no-enable)
+  "현재의 테마를 비활성화하고 로딩하도록 설정한다."
   (mapc #'disable-theme custom-enabled-themes))
 (advice-add 'load-theme
             :before #'u/disable-themes-before-load)
+
+(defun u/buffer-byte-size ()
+  "현재 버퍼의 바이트 크기 표시."
+  (interactive)
+  (let ((bytes (- (position-bytes (point-max))
+                  (position-bytes (point-min)))))
+    (message "%s: %s (%d bytes)"
+             (buffer-name)
+             (file-size-human-readable bytes)
+             bytes)))
+
+(defun u/resize-inline-images ()
+  "버퍼의 인라인 이미지를 창 너비의 절반 이하로 줄인다."
+  (interactive)
+  (let ((max (/ (window-body-width nil t) 2)))
+    (dolist (ov (overlays-in (point-min) (point-max)))
+      (let ((img (overlay-get ov 'display)))
+        (when (eq (car-safe img) 'image)
+          (let ((img (copy-sequence img)))
+            (setf (image-property img :max-width) max)
+            (overlay-put ov 'display img)))))))
+
+(defun u/json-pretty-compact-buffer ()
+  "Json 포맷 형식 압축. `C-u M-x json-pretty-print-buffer` 동일"
+  (interactive)
+  (json-pretty-print-buffer t))
 #+end_src
 
 ** Better defaults
