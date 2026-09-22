@@ -730,11 +730,85 @@ pre.src {
         (if (> exported-count 0)
             (message "Appended %d new entries to ~/org/feed.org" exported-count)
           (message "No new entries to export")))))
-  :config
+
   (evil-define-key 'normal elfeed-search-mode-map
     (kbd "f") #'u/elfeed-toggle-flagged
     (kbd "F") #'u/elfeed-show-flagged
-    (kbd "E") #'u/elfeed-export-flagged))
+    (kbd "E") #'u/elfeed-export-flagged)
+
+  ;; 검색 목록: 제목 폭을 창 너비에 맞추고 unread 태그는 표시하지 않는다.
+  (defun u/elfeed-search-print-entry (entry)
+    (let* ((title (or (elfeed-meta entry :title) (elfeed-entry-title entry) ""))
+           (feed (elfeed-entry-feed entry))
+           (feed-title (and feed (or (elfeed-meta feed :title) (elfeed-feed-title feed))))
+           (tags (remove 'unread (elfeed-entry-tags entry)))
+           (width (max elfeed-search-title-min-width
+                       (- (window-width) 10 elfeed-search-trailing-width))))
+      (insert (propertize (elfeed-search-format-date (elfeed-entry-date entry))
+                          'face 'elfeed-search-date-face)
+              " "
+              (propertize (elfeed-format-column title width :left)
+                          'face (elfeed-search--faces (elfeed-entry-tags entry))
+                          'kbd-help title)
+              " ")
+      (when feed-title
+        (insert (propertize feed-title 'face 'elfeed-search-feed-face) " "))
+      (when tags
+        (insert (propertize (format "(%s)" (mapconcat #'symbol-name tags ","))
+                            'face 'elfeed-search-tag-face)))))
+
+  (setq elfeed-search-print-entry-function #'u/elfeed-search-print-entry)
+
+  ;; DB 정리. elfeed 에는 엔트리 삭제 API 가 없어 색인과 해시에서 직접 뺀다.
+  (defun u/elfeed--delete-entries (pred)
+    "PRED (entry feed) 가 참인 엔트리를 지우고 지운 개수를 돌려준다."
+    (elfeed-db-ensure)
+    (let (ids)
+      (with-elfeed-db-visit (entry feed)
+        (when (funcall pred entry feed)
+          (push (elfeed-entry-id entry) ids)))
+      (dolist (id ids)
+        (avl-tree-delete elfeed-db-index id)
+        (remhash id elfeed-db-entries))
+      (elfeed-db-gc-safe)
+      (elfeed-db-save)
+      (length ids)))
+
+  (defun u/elfeed--read-feed ()
+    "DB 에 있는 피드를 제목 · 게시물 수 · URL 로 보여주고 고른 URL 을 돌려준다."
+    (elfeed-db-ensure)
+    (let ((counts (make-hash-table :test 'equal))
+          cands)
+      (with-elfeed-db-visit (entry _feed)
+        (cl-incf (gethash (elfeed-entry-feed-id entry) counts 0)))
+      (maphash (lambda (url feed)
+                 (push (cons (format "%s (%d개)  %s"
+                                     (or (elfeed-feed-title feed) "")
+                                     (gethash url counts 0)
+                                     url)
+                             url)
+                       cands))
+               elfeed-db-feeds)
+      (assoc-default (completing-read "Feed: " cands nil t) cands)))
+
+  (defun u/elfeed-delete-feed-entries (feed-url)
+    "FEED-URL 의 게시물 전부와 피드 항목을 DB 에서 지운다."
+    (interactive (list (u/elfeed--read-feed)))
+    (let ((n (u/elfeed--delete-entries
+              (lambda (_ feed) (string= (elfeed-feed-id feed) feed-url)))))
+      (remhash feed-url elfeed-db-feeds)
+      (elfeed-db-save)
+      (message "Deleted %d entries from %s" n feed-url)))
+
+  (defun u/elfeed-cleanup-ephemeral (&optional days)
+    "ephemeral 엔트리 중 DAYS(기본 21)일보다 오래된 것을 지운다. C-u 0 이면 전부."
+    (interactive "P")
+    (let ((cutoff (- (float-time) (* (if days (prefix-numeric-value days) 21) 86400))))
+      (message "Cleaned up %d ephemeral entries"
+               (u/elfeed--delete-entries
+                (lambda (entry _)
+                  (and (elfeed-tagged-p 'ephemeral entry)
+                       (< (elfeed-entry-date entry) cutoff))))))))
 
 (use-package elfeed-org
   :after (elfeed org)
