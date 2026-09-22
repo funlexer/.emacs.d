@@ -1025,6 +1025,23 @@ pre.src {
     scheme-mode) . paredit-mode))
 #+end_src
 
+** C
+
+#+begin_src emacs-lisp
+(use-package cc-mode
+  :straight (:type built-in)
+  :config
+  (c-add-style "my-c-style"
+               '("linux"
+                 (c-basic-offset . 2)
+                 (tab-width . 2)
+                 (indent-tabs-mode . nil)))
+  (defun u/c-setup ()
+    (c-set-style "my-c-style")
+    (eglot-ensure))
+  :hook ((c-mode c++-mode) . u/c-setup))
+#+end_src
+
 ** Go
 
 유틸리티
