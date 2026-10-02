@@ -387,7 +387,6 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
                                  (file "~/org/tickler.org")
                                  "* %i%? \n %U"))
         org-tag-alist '(("crypt" . ?c) ("@home" . ?h) ("@office" . ?o))
-        org-babel-default-header-args '((:eval . "never-export"))
         org-export-with-special-strings nil ; #+OPTIONS: -:nil
         org-export-with-sub-superscripts '{} ; #+OPTIONS: ^:{}
         org-html-postamble nil
@@ -398,6 +397,8 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
         org-html-head-include-default-style t)
 
   :config
+  (setf (alist-get :eval org-babel-default-header-args) "never-export")
+
   (defun u/get-theme-colors-for-org-html ()
     (let* ((bg-color (face-background 'default))
            (fg-color (face-foreground 'default))
@@ -618,9 +619,7 @@ pre.src {
 (use-package embark)
 
 (use-package embark-consult
-  :after (embark consult)
-  :hook
-  ((embark-collect-mode . consult-preview-at-point-mode)))
+  :after (embark consult))
 
 (use-package consult
   :init
@@ -904,7 +903,7 @@ pre.src {
                      (concat (propertize text 'face 'underline)
                              (propertize "\u200b" 'cursor t))))))
 
-  (defun u/vterm-hangul--follow-cursor (buffer)
+  (defun u/vterm-hangul--follow-cursor (buffer &rest _)
     "vterm 이 화면을 다시 그린 뒤 조합 오버레이를 새 커서 위치로 옮긴다.
 타이머로 불리므로 버퍼가 이미 죽었을 수 있다 (vterm 원본과 같은 보호)."
     (when (buffer-live-p buffer)
@@ -928,18 +927,24 @@ pre.src {
     (when u/vterm-hangul--target
       (u/vterm-hangul--flush nil)))
 
-  (defun u/vterm-hangul--around (orig key)
+  (defun u/vterm-hangul--around (orig &rest args)
     (if (not (derived-mode-p 'vterm-mode))
-        (funcall orig key)
+        (apply orig args)
       (let ((u/vterm-hangul--target (current-buffer)))
         (with-temp-buffer
-          (unwind-protect (funcall orig key)
+          (unwind-protect (apply orig args)
             (u/vterm-hangul--flush t))))))
 
   (advice-add 'hangul-insert-character :after #'u/vterm-hangul--after-insert)
   (advice-add 'hangul2-input-method :around #'u/vterm-hangul--around)
   (advice-add 'hangul3-input-method :around #'u/vterm-hangul--around)
+  (advice-add 'hangul390-input-method :around #'u/vterm-hangul--around)
   (advice-add 'vterm--delayed-redraw :after #'u/vterm-hangul--follow-cursor))
+
+;; sh-mode 가 셸 종류를 정할 때마다 찍는 안내 메시지 3줄을 억제한다.
+(advice-add 'sh-set-shell :around
+            (lambda (orig &rest args)
+              (let ((inhibit-message t)) (apply orig args))))
 
 (use-package zsh-mode
   :straight nil
@@ -1249,7 +1254,7 @@ go install github.com/koron/iferr@master
   :straight ( :type git
               :host github
               :repo "djcb/mu"
-              :branch "v1.12.12"
+              :branch "v1.12.15"
               :files ("build/mu4e/*.el"))
   :config
   ;; maildir 첫 번째 경로를 context로 사용
