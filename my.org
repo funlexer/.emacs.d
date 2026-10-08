@@ -990,7 +990,8 @@ pre.src {
   (setq eglot-events-buffer-config '(:size 0 :format full))
   (setq-default eglot-workspace-configuration
                 '((:gopls . ((staticcheck . t)
-                             (matcher . "CaseSensitive")))))
+                             (matcher . "CaseSensitive")
+                             (analyses . ((ST1003 . :json-false)))))))
   :config
   (evil-collection-define-key 'normal 'eglot-mode-map "gr" 'xref-find-references)
 
