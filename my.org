@@ -1250,7 +1250,7 @@ go install github.com/koron/iferr@master
 
 ** Mail
 
-#+begin_src emacs-lisp :tangle (if (eq system-type 'windows-nt) "no" "yes")
+#+begin_src emacs-lisp :tangle (if (file-exists-p "~/.emacs.d/.usemail") "yes" "no")
 (use-package mu4e
   :straight ( :type git
               :host github
