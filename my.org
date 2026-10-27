@@ -874,8 +874,7 @@ pre.src {
   :demand t
   :init
   (setq vterm-always-compile-module t
-        ;; 기본값 1000 은 출력이 많은 TUI 에 부족하다
-        vterm-max-scrollback 100000)
+        vterm-max-scrollback 1000000)
   :hook
   ((vterm-mode . u/disable-line-numbers-mode))
   :config
@@ -883,6 +882,14 @@ pre.src {
               :after (lambda (buffer)
                        (when-let* ((proc (get-buffer-process buffer)))
                          (set-process-query-on-exit-flag proc nil))))
+
+  ;; 디코딩 불가 바이트 처리. U+FFFD 로 변경
+  (define-advice vterm--write-input (:filter-args (args) u/replace-raw-bytes)
+    (let ((s (cadr args)))
+      (list (car args)
+            (if (multibyte-string-p s)
+                (replace-regexp-in-string "[\x3fff80-\x3fffff]" "\uFFFD" s)
+              s))))
   (defalias 'u/sh 'vterm)
 
   (defvar u/vterm-hangul--target nil
