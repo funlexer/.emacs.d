@@ -1222,11 +1222,13 @@ go install github.com/koron/iferr@master
     "k8s-mode 버퍼의 imenu 를 kind/name 목록으로 바꾼다."
     (setq-local imenu-create-index-function #'u/k8s-imenu-index))
 
+  :init
+  (add-to-list 'org-src-lang-modes '("k8s" . yaml))
+
   :config
   (setq k8s-indent-offset nil
         k8s-site-docs-url "https://kubernetes.io/docs/reference/generated/kubernetes-api/")
   (add-to-list 'magic-mode-alist '("apiVersion:" . k8s-mode))
-  (add-to-list 'org-src-lang-modes '("k8s" . yaml))
 
   :hook
   ((k8s-mode . u/k8s-imenu-setup)))
