@@ -277,6 +277,13 @@ Examples: (u/join-path \"/tmp\" \"a\" \"b.txt\") => /tmp/a/b.txt"
     (setq grep-find-use-xargs 'gnu ;; use xargs
           grep-find-command ;; POSIX
           "find . -type f -print0 | xargs -0 grep --color=auto -nH -e ")))
+
+(use-package proced
+  :straight (:type built-in)
+  :custom
+  (proced-auto-update-flag t)
+  (proced-auto-update-interval 2)
+  (proced-filter 'all)) ;; 전체 프로세스
 #+end_src
 
 ** Base Packages
